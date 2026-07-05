@@ -1,0 +1,42 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Footer from '../components/Footer.astro';
+import Header from '../components/Header.astro';
+import { SITE_DESCRIPTION, SITE_TITLE } from '../consts';
+
+interface Props {
+	title?: string;
+	description?: string;
+	class?: string;
+	i18nPage?: string;
+}
+
+const {
+	title = SITE_TITLE,
+	description = SITE_DESCRIPTION,
+	class: className = '',
+	i18nPage = 'home',
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<BaseHead title={title} description={description} />
+	</head>
+	<body data-i18n-page={i18nPage}>
+		<div class="scroll-progress" aria-hidden="true"></div>
+		<div class="paper-light" aria-hidden="true"></div>
+		<div class="page-shell">
+			<Header />
+			<main class:list={['site-main', className]}>
+				<slot />
+			</main>
+			<Footer />
+		</div>
+		<script>
+			import '../scripts/i18n.ts';
+			import '../scripts/motion.ts';
+		</script>
+	</body>
+</html>

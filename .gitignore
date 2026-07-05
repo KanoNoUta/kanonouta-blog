@@ -22,3 +22,8 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# local scratch
+.catpaw/
+.tmp_async/
+.tmp_typography/

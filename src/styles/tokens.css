@@ -1,0 +1,104 @@
+:root {
+	--surface-paper: #fdfcf8;
+	--color-paper: var(--surface-paper);
+	--color-accent: #c56473;
+	--color-info: #3d6896;
+	--color-success: #5e9f7e;
+	--color-warning: #a87a3d;
+	--color-error: #a64953;
+
+	--color-neutral-1: #f9f8f5;
+	--color-neutral-2: #f0efeb;
+	--color-neutral-3: #e3e1db;
+	--color-neutral-4: #d0cec6;
+	--color-neutral-5: #a8a69f;
+	--color-neutral-6: #787670;
+	--color-neutral-7: #5c5a55;
+	--color-neutral-8: #403f3a;
+	--color-neutral-9: #24231f;
+	--color-neutral-10: #141312;
+	--color-border: rgba(24, 24, 27, 0.1);
+
+	--font-sans:
+		'Source Sans Pro', Roboto, Helvetica, 'Helvetica Neue', 'Source Han Sans SC',
+		'Source Han Sans TC', 'Noto Sans SC', 'PingFang SC', 'PingFang HK',
+		'PingFang TC', ui-sans-serif, system-ui, sans-serif,
+		'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+	--font-serif:
+		'HiraMinProN-W6', 'Source Han Serif CN', 'Source Han Serif SC',
+		'Source Han Serif TC', 'Noto Serif SC', 'STSong', 'SimSun', serif;
+	--font-mono:
+		Monaco, Menlo, 'Source Code Pro', 'Cascadia Code', Consolas, ui-monospace,
+		SFMono-Regular, 'Liberation Mono', 'Courier New', monospace;
+	--font-pixel: BoutiqueBitmap, var(--font-sans);
+	--font-logo-cjk: var(--font-serif);
+	--font-logo-latin: var(--font-sans);
+
+	--text-caption-10: 10px;
+	--text-caption-10-line: 1.4;
+	--text-label-12: 12px;
+	--text-label-12-line: 1.5;
+	--text-copy-13: 13px;
+	--text-copy-13-line: 1.54;
+	--text-copy-14: 14px;
+	--text-copy-14-line: 1.57;
+	--text-copy-15: 15px;
+	--text-copy-15-line: 1.6;
+	--text-copy-16: 16px;
+	--text-copy-16-line: 1.625;
+	--text-title-20: 20px;
+	--text-title-20-line: 1.4;
+	--text-title-24: 24px;
+	--text-title-24-line: 1.33;
+	--text-title-28: 28px;
+	--text-title-28-line: 1.29;
+	--text-display-36: 36px;
+	--text-display-36-line: 1.22;
+	--text-display-48: 48px;
+	--text-display-48-line: 1.17;
+	--text-icon-sm: 14px;
+	--text-icon-md: 16px;
+	--text-icon-lg: 18px;
+
+	--radius-chip: 4px;
+	--radius-control: 6px;
+	--radius-card: 8px;
+	--radius-panel: 12px;
+	--radius-hero: 16px;
+	--shadow-whisper: 0 4px 24px rgba(36, 35, 31, 0.05);
+	--shadow-float: 0 12px 40px rgba(36, 35, 31, 0.07);
+	--blur-thin: 8px;
+	--blur-default: 16px;
+	--blur-thick: 24px;
+	--pixel-ink: color-mix(in srgb, #1a1a1a 78%, var(--color-accent));
+	--pixel-line: color-mix(in srgb, #8b7355 72%, var(--color-accent));
+	--pixel-line-soft: color-mix(in srgb, var(--pixel-line) 28%, transparent);
+	--pixel-fill: color-mix(in srgb, #f8f5f0 72%, var(--color-paper));
+	--pixel-fill-strong: color-mix(in srgb, #e8d7b9 64%, var(--color-neutral-1));
+	--pixel-highlight: color-mix(in srgb, #f4e4c7 66%, var(--color-warning));
+	--pixel-screen: color-mix(in srgb, #ebe5dc 72%, var(--color-neutral-1));
+	--pixel-border: 2px solid var(--pixel-line);
+	--pixel-shadow: 4px 4px 0 color-mix(in srgb, var(--pixel-ink) 22%, transparent);
+	--pixel-shadow-hard: 4px 4px 0 color-mix(in srgb, var(--pixel-ink) 72%, transparent);
+	--pixel-cell: 6px;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--surface-paper: #1c1c1e;
+		--color-accent: #e09aa4;
+		--color-neutral-1: #242424;
+		--color-neutral-2: #2b2b2b;
+		--color-neutral-3: #363636;
+		--color-neutral-4: #4a4a4a;
+		--color-neutral-5: #686868;
+		--color-neutral-6: #8a8a8a;
+		--color-neutral-7: #adadad;
+		--color-neutral-8: #d0d0d0;
+		--color-neutral-9: #ececec;
+		--color-neutral-10: #f7f7f7;
+		--color-border: rgba(255, 255, 255, 0.12);
+		--shadow-whisper: 0 4px 24px rgba(0, 0, 0, 0.18);
+		--shadow-float: 0 12px 40px rgba(0, 0, 0, 0.22);
+	}
+}

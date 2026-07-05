@@ -1,0 +1,381 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { chinaRegions, japanRegions, mapViewBox, places, routeLines } from '../../lib/footprintMapData';
+
+const explorationTotal = 240;
+const exploredPercent = Math.round((places.length / explorationTotal) * 1000) / 10;
+---
+
+<BaseLayout title="足迹地图 - Kano no Uta" description="Kano 的足迹地图，记录已经点亮的城市。" class="footprint-layout" i18nPage="map">
+	<section class="footprint-page" data-reveal>
+		<header class="footprint-toolbar" aria-label="地图状态" data-i18n-aria-label="mapToolbarLabel">
+			<a class="footprint-tool" href="/lab/" aria-label="返回 Lab" data-i18n-aria-label="mapBackLabLabel">
+				<span>↩</span>
+			</a>
+			<div class="footprint-status" aria-label="探索进度" data-i18n-aria-label="mapProgressLabel">
+				<div>
+					<span data-i18n="mapExplored">已探索</span>
+					<strong>{places.length}</strong>
+					<small data-i18n="mapCityUnit">城市</small>
+				</div>
+				<div class="footprint-meter" aria-hidden="true">
+					<span style={`--meter: ${exploredPercent}%`}></span>
+				</div>
+				<b>{exploredPercent}%</b>
+			</div>
+			<div class="footprint-tools">
+				<button type="button" data-map-zoom-in aria-label="放大地图" data-i18n-aria-label="mapZoomIn">＋</button>
+				<button type="button" data-map-reset aria-label="重置地图" data-i18n-aria-label="mapReset">⌖</button>
+				<button type="button" data-map-zoom-out aria-label="缩小地图" data-i18n-aria-label="mapZoomOut">−</button>
+			</div>
+		</header>
+
+		<div class="footprint-map-shell">
+			<div class="map-paper">
+				<img class="map-compass" src="/vendor/async-area/ipurush_Compass.svg" alt="" aria-hidden="true" />
+				<div class="map-hover-label" data-map-hover-label aria-live="polite"></div>
+				<div class="map-legend" aria-hidden="true">
+					<span class="map-legend__bar"></span>
+					<span class="map-legend__label" data-i18n="mapLegendDistance">约 800 km</span>
+				</div>
+
+				<svg class="footprint-map" viewBox={mapViewBox} data-initial-viewbox={mapViewBox} role="img" aria-labelledby="footprint-title footprint-desc">
+					<title id="footprint-title" data-i18n="mapTitleSvg">Kano 的足迹地图</title>
+					<desc id="footprint-desc" data-i18n="mapDescSvg">点亮的城市包括珠海、澳门、香港、大阪、九州、东京、陕西、山西、北京、四川和重庆。</desc>
+					<defs>
+						<filter id="mapNoise">
+							<feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="2" stitchTiles="stitch" />
+							<feColorMatrix type="saturate" values="0" />
+							<feComponentTransfer>
+								<feFuncA type="table" tableValues="0 0.11" />
+							</feComponentTransfer>
+						</filter>
+						<filter id="markerGlow" x="-80%" y="-80%" width="260%" height="260%">
+							<feGaussianBlur stdDeviation="7" result="blur" />
+							<feMerge>
+								<feMergeNode in="blur" />
+								<feMergeNode in="SourceGraphic" />
+							</feMerge>
+						</filter>
+						<linearGradient id="landFill" x1="0%" x2="100%" y1="0%" y2="100%">
+							<stop offset="0%" stop-color="#ead9b6" />
+							<stop offset="100%" stop-color="#d7bc85" />
+						</linearGradient>
+						<linearGradient id="visitedFill" x1="0%" x2="100%" y1="0%" y2="100%">
+							<stop offset="0%" stop-color="#f2bd72" />
+							<stop offset="100%" stop-color="#dc8f5c" />
+						</linearGradient>
+						<linearGradient id="japanFill" x1="0%" x2="100%" y1="0%" y2="100%">
+							<stop offset="0%" stop-color="#e1c89b" />
+							<stop offset="100%" stop-color="#c7a56f" />
+						</linearGradient>
+					</defs>
+
+					<rect class="map-wash" x="26" y="30" width="948" height="548" rx="10"></rect>
+					<rect class="map-noise" x="26" y="30" width="948" height="548" rx="10" filter="url(#mapNoise)"></rect>
+
+					<g class="land land-china" aria-label="中国地图" data-i18n-aria-label="mapChinaLabel">
+						{chinaRegions.map((region) => (
+							<path class:list={[region.visited && 'is-visited']} data-map-name={region.name} style={`--band: ${region.distanceBand ?? 7}`} d={region.d}>
+								<title>{region.name}</title>
+							</path>
+						))}
+					</g>
+
+					<g class="land land-japan" aria-label="日本地图" data-i18n-aria-label="mapJapanLabel">
+						{japanRegions.map((region) => (
+							<path class:list={[region.visited && 'is-visited']} data-map-name={region.name} d={region.d}>
+								<title>{region.name}</title>
+							</path>
+						))}
+					</g>
+
+					<g class="map-lines" aria-hidden="true">
+						{routeLines.map((line) => (
+							<path d={line.d} />
+						))}
+					</g>
+
+					<g class="place-markers">
+						{places.map((place, index) => (
+							<g class:list={['place-marker', `place-marker--${place.tone}`]} data-map-name={place.name} data-map-region={place.region} data-map-note={place.note} data-map-x={place.x} data-map-y={place.y} style={`--delay: ${index * 90}ms`} transform={`translate(${place.x} ${place.y})`} role="button" tabindex="0" aria-label={`${place.name}，${place.region}，${place.note}。点击或回车聚焦此城市。`}>
+								<circle class="place-marker__pulse" r="14"></circle>
+								<circle class="place-marker__ring" r="8"></circle>
+							<circle class="place-marker__dot" r="4.5"></circle>
+						</g>
+						))}
+					</g>
+
+					<g class="map-inset" aria-label="南海群岛示意" data-i18n-aria-label="mapInsetLabel">
+						<rect class="map-inset__frame" x="650" y="392" width="122" height="154"></rect>
+						<path class="map-inset__coast" d="M653 397L672 419L698 421L730 409L755 393L767 393L769 407L761 424L772 424" />
+						<path class="map-inset__coast" d="M754 416L743 439" />
+						<path class="map-inset__coast" d="M737 463V497" />
+						<g class="map-inset__archipelago">
+							<path d="M694 432L711 427L702 446L688 450Z" />
+							<path d="M685 463L691 486L683 486L679 464Z" />
+							<path d="M707 501L719 486L723 489L711 506Z" />
+							<path d="M676 526L686 528L691 546L681 544Z" />
+							<path d="M738 455L752 436L755 438L744 459Z" />
+							<path d="M733 510L744 492L749 493L740 513Z" />
+							<path d="M715 539L735 533L736 536L712 546Z" />
+							<path d="M755 424L767 400L770 402L760 425Z" />
+							<ellipse cx="690" cy="514" rx="2.2" ry="1.1" />
+							<ellipse cx="721" cy="471" rx="1.8" ry="1" />
+							<ellipse cx="752" cy="482" rx="1.6" ry="1" />
+							<ellipse cx="705" cy="525" rx="1.7" ry="0.9" />
+							<ellipse cx="683" cy="493" rx="1.5" ry="0.9" />
+						</g>
+					</g>
+
+					<g class="moving-paper-edges" aria-hidden="true">
+						<path class="moving-paper-edge moving-paper-edge--left" d="M0 0H39C34 12 43 25 31 40C42 57 24 69 35 88C24 108 42 126 31 150C44 177 23 198 36 224C25 251 42 275 32 303C45 335 24 360 38 392C25 420 42 448 30 480C43 514 25 545 40 620H0Z" />
+						<path class="moving-paper-edge moving-paper-edge--right" d="M1000 0H960C967 14 953 31 970 48C957 68 976 86 963 111C974 137 954 163 966 193C953 226 977 252 962 284C976 318 956 347 969 380C955 414 976 448 962 485C974 525 955 568 960 620H1000Z" />
+						<path class="moving-paper-edge moving-paper-edge--top" d="M0 0H1000V35C966 27 935 43 899 31C860 43 823 24 784 36C742 23 702 42 661 30C621 44 581 24 537 38C492 24 451 43 409 30C364 43 324 24 282 36C238 25 197 42 154 31C111 44 65 24 0 37Z" />
+						<path class="moving-paper-edge moving-paper-edge--bottom" d="M0 620V583C41 595 76 578 115 591C155 577 194 597 234 584C273 597 313 578 354 590C396 577 437 598 480 584C523 598 565 579 608 592C652 577 693 597 736 584C780 598 824 578 868 591C912 577 955 596 1000 583V620Z" />
+						<path class="moving-paper-fold moving-paper-fold--left" d="M35 0C21 88 48 145 32 231C52 316 22 387 40 474C26 548 43 592 38 620" />
+						<path class="moving-paper-fold moving-paper-fold--right" d="M964 0C982 73 951 151 969 226C946 306 978 373 961 454C982 530 958 579 963 620" />
+						<path class="moving-paper-fold moving-paper-fold--top" d="M0 35C118 16 206 50 322 31C443 51 548 19 672 35C789 16 886 48 1000 35" />
+						<path class="moving-paper-fold moving-paper-fold--bottom" d="M0 584C116 604 212 568 329 590C449 570 558 604 681 586C801 605 895 570 1000 584" />
+					</g>
+				</svg>
+			</div>
+		</div>
+	</section>
+	<script>
+		type ViewBox = { x: number; y: number; width: number; height: number };
+		type Point = { x: number; y: number };
+		type DragState = { pointerId: number; clientX: number; clientY: number; viewBox: ViewBox };
+
+		const label = document.querySelector<HTMLElement>('[data-map-hover-label]');
+		const map = document.querySelector<SVGSVGElement>('.footprint-map');
+		const paper = document.querySelector<HTMLElement>('.map-paper');
+		const mapTargets = document.querySelectorAll<Element>('[data-map-name]');
+		const markers = document.querySelectorAll<SVGGElement>('.place-marker');
+		const zoomIn = document.querySelector<HTMLButtonElement>('[data-map-zoom-in]');
+		const zoomOut = document.querySelector<HTMLButtonElement>('[data-map-zoom-out]');
+		const reset = document.querySelector<HTMLButtonElement>('[data-map-reset]');
+		const initialViewBox = map
+			?.getAttribute('data-initial-viewbox')
+			?.split(/\s+/)
+			.map(Number);
+		const baseViewBox: ViewBox = {
+			x: initialViewBox?.[0] ?? 0,
+			y: initialViewBox?.[1] ?? 0,
+			width: initialViewBox?.[2] ?? 1000,
+			height: initialViewBox?.[3] ?? 620,
+		};
+		const minZoom = 1;
+		const maxZoom = 14;
+		const markerZoom = 3.4;
+		let viewBox: ViewBox = { ...baseViewBox };
+		let dragStart: DragState | null = null;
+		let zoomAnim: number | null = null;
+		const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+		const moveLabel = (clientX: number, clientY: number): void => {
+			if (!label || !paper) return;
+			const rect = paper.getBoundingClientRect();
+			label.style.left = `${clientX - rect.left + 14}px`;
+			label.style.top = `${clientY - rect.top}px`;
+		};
+
+		const showLabel = (name: string | null, clientX: number, clientY: number): void => {
+			if (!label || !name) return;
+			label.textContent = name;
+			label.setAttribute('data-active', '');
+			moveLabel(clientX, clientY);
+		};
+
+		const hideLabel = (): void => {
+			if (!label) return;
+			label.removeAttribute('data-active');
+			label.textContent = '';
+		};
+
+		const updateFromEvent = (event: { target: EventTarget | null; clientX: number; clientY: number }): void => {
+			const target = event.target instanceof Element ? event.target.closest('[data-map-name]') : null;
+			if (target) {
+				showLabel(target.getAttribute('data-map-name'), event.clientX, event.clientY);
+			} else {
+				hideLabel();
+			}
+		};
+
+		map?.addEventListener('pointerleave', () => hideLabel());
+
+		mapTargets.forEach((target) => {
+			target.addEventListener('focus', () => {
+				if (target instanceof Element) {
+					const rect = target.getBoundingClientRect();
+					showLabel(target.getAttribute('data-map-name'), rect.left + rect.width / 2, rect.top + rect.height / 2);
+				}
+			});
+			target.addEventListener('blur', () => hideLabel());
+		});
+
+		const clamp = (value: number, min: number, max: number): number =>
+			Math.min(Math.max(value, min), max);
+
+		const clampViewBox = (next: ViewBox): ViewBox => {
+			const width = clamp(next.width, baseViewBox.width / maxZoom, baseViewBox.width / minZoom);
+			const height = clamp(next.height, baseViewBox.height / maxZoom, baseViewBox.height / minZoom);
+			return {
+				x: clamp(next.x, baseViewBox.x, baseViewBox.x + baseViewBox.width - width),
+				y: clamp(next.y, baseViewBox.y, baseViewBox.y + baseViewBox.height - height),
+				width,
+				height,
+			};
+		};
+
+		const applyViewBox = (next: ViewBox): void => {
+			if (!map) return;
+			viewBox = clampViewBox(next);
+			const zoom = baseViewBox.width / viewBox.width;
+			map.setAttribute('viewBox', `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`);
+			paper?.style.setProperty('--map-zoom', String(zoom));
+			paper?.style.setProperty('--marker-scale', String(Math.min(1, 1 / zoom)));
+			paper?.toggleAttribute('data-show-markers', zoom >= markerZoom);
+			paper?.toggleAttribute('data-map-dragging', Boolean(dragStart));
+		};
+
+		const easeInOutCubic = (t: number): number =>
+			t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+		const animateViewBox = (target: ViewBox, duration = 380): void => {
+			if (reduceMotion) {
+				applyViewBox(target);
+				return;
+			}
+			if (zoomAnim) cancelAnimationFrame(zoomAnim);
+			const start: ViewBox = { ...viewBox };
+			const startTime = performance.now();
+			const step = (now: number): void => {
+				const t = Math.min(1, (now - startTime) / duration);
+				const e = easeInOutCubic(t);
+				applyViewBox({
+					x: start.x + (target.x - start.x) * e,
+					y: start.y + (target.y - start.y) * e,
+					width: start.width + (target.width - start.width) * e,
+					height: start.height + (target.height - start.height) * e,
+				});
+				if (t < 1) zoomAnim = requestAnimationFrame(step);
+				else zoomAnim = null;
+			};
+			zoomAnim = requestAnimationFrame(step);
+		};
+
+		const cancelZoomAnim = (): void => {
+			if (zoomAnim) {
+				cancelAnimationFrame(zoomAnim);
+				zoomAnim = null;
+			}
+		};
+
+		const pointFromEvent = (event: { clientX: number; clientY: number }): Point => {
+			if (!map) return { x: baseViewBox.x + baseViewBox.width / 2, y: baseViewBox.y + baseViewBox.height / 2 };
+			const rect = map.getBoundingClientRect();
+			return {
+				x: viewBox.x + ((event.clientX - rect.left) / rect.width) * viewBox.width,
+				y: viewBox.y + ((event.clientY - rect.top) / rect.height) * viewBox.height,
+			};
+		};
+
+		const zoomAt = (scale: number, center: Point): void => {
+			const nextWidth = viewBox.width / scale;
+			const nextHeight = viewBox.height / scale;
+			const ratioX = (center.x - viewBox.x) / viewBox.width;
+			const ratioY = (center.y - viewBox.y) / viewBox.height;
+			applyViewBox({
+				x: center.x - nextWidth * ratioX,
+				y: center.y - nextHeight * ratioY,
+				width: nextWidth,
+				height: nextHeight,
+			});
+		};
+
+		const zoomAtAnimated = (scale: number, center: Point): void => {
+			const nextWidth = viewBox.width / scale;
+			const nextHeight = viewBox.height / scale;
+			const ratioX = (center.x - viewBox.x) / viewBox.width;
+			const ratioY = (center.y - viewBox.y) / viewBox.height;
+			animateViewBox({
+				x: center.x - nextWidth * ratioX,
+				y: center.y - nextHeight * ratioY,
+				width: nextWidth,
+				height: nextHeight,
+			});
+		};
+
+		const focusMarker = (marker: SVGGElement): void => {
+			const x = Number(marker.getAttribute('data-map-x'));
+			const y = Number(marker.getAttribute('data-map-y'));
+			if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+			const zoom = markerZoom + 1.2;
+			const width = baseViewBox.width / zoom;
+			const height = baseViewBox.height / zoom;
+			animateViewBox({ x: x - width / 2, y: y - height / 2, width, height });
+		};
+
+		map?.addEventListener('wheel', (event: WheelEvent) => {
+			event.preventDefault();
+			cancelZoomAnim();
+			const scale = event.deltaY < 0 ? 1.24 : 1 / 1.24;
+			zoomAt(scale, pointFromEvent(event));
+		}, { passive: false });
+
+		map?.addEventListener('pointerdown', (event: PointerEvent) => {
+			if (!(event.target instanceof Element)) return;
+			cancelZoomAnim();
+			dragStart = {
+				pointerId: event.pointerId,
+				clientX: event.clientX,
+				clientY: event.clientY,
+				viewBox: { ...viewBox },
+			};
+			map.setPointerCapture(event.pointerId);
+			applyViewBox(viewBox);
+		});
+
+		map?.addEventListener('pointermove', (event: PointerEvent) => {
+			updateFromEvent(event);
+			if (!dragStart || dragStart.pointerId !== event.pointerId || !map) return;
+			const rect = map.getBoundingClientRect();
+			const dx = ((event.clientX - dragStart.clientX) / rect.width) * dragStart.viewBox.width;
+			const dy = ((event.clientY - dragStart.clientY) / rect.height) * dragStart.viewBox.height;
+			applyViewBox({
+				...dragStart.viewBox,
+				x: dragStart.viewBox.x - dx,
+				y: dragStart.viewBox.y - dy,
+			});
+		});
+
+		const endDrag = (event: PointerEvent): void => {
+			if (!dragStart || dragStart.pointerId !== event.pointerId) return;
+			dragStart = null;
+			paper?.removeAttribute('data-map-dragging');
+		};
+
+		map?.addEventListener('pointerup', endDrag);
+		map?.addEventListener('pointercancel', endDrag);
+		map?.addEventListener('dblclick', (event: MouseEvent) => zoomAtAnimated(1.8, pointFromEvent(event)));
+
+		markers.forEach((marker) => {
+			marker.addEventListener('click', (event: MouseEvent) => {
+				event.stopPropagation();
+				focusMarker(marker);
+			});
+			marker.addEventListener('keydown', (event: KeyboardEvent) => {
+				if (event.key === 'Enter' || event.key === ' ') {
+					event.preventDefault();
+					focusMarker(marker);
+				}
+			});
+		});
+
+		zoomIn?.addEventListener('click', () => zoomAtAnimated(1.65, { x: viewBox.x + viewBox.width / 2, y: viewBox.y + viewBox.height / 2 }));
+		zoomOut?.addEventListener('click', () => zoomAtAnimated(1 / 1.65, { x: viewBox.x + viewBox.width / 2, y: viewBox.y + viewBox.height / 2 }));
+		reset?.addEventListener('click', () => animateViewBox(baseViewBox));
+		applyViewBox(baseViewBox);
+	</script>
+</BaseLayout>

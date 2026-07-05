@@ -1,0 +1,88 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+interface Friend {
+	name: string;
+	url: string;
+	desc: string;
+	descKey: string;
+	avatar?: string;
+}
+
+const friends: Friend[] = [
+	{
+		name: 'DIYgod',
+		url: 'https://diygod.cc/',
+		desc: '独立博客和中文互联网里很熟悉的名字。',
+		descKey: 'friendDiygodDesc',
+	},
+];
+
+const recommended: Friend[] = [
+	{
+		name: 'Astro',
+		url: 'https://astro.build/',
+		desc: 'The web framework for content-driven websites.',
+		descKey: 'friendAstroDesc',
+	},
+];
+---
+
+<BaseLayout title="友链 - Kano no Uta" description="Kano no Uta 的友链页面。" i18nPage="links">
+	<header class="page-heading" data-reveal>
+		<p class="eyebrow" data-i18n="linksEyebrow">Friends</p>
+		<h1 data-i18n="linksTitle">友链</h1>
+		<p data-i18n="linksLead">独立博客的门牌不只指向自己，也应该指向一些还在认真写东西的人。</p>
+	</header>
+
+	<section class="links-section" data-reveal>
+		<h2 class="links-section__title">
+			<span class="pixel-tag">BLOG</span>
+			<span data-i18n="blogrollTitle">博客友链</span>
+		</h2>
+		<div class="friend-grid">
+			{
+				friends.map((friend) => (
+					<a class="friend-card" href={friend.url} target="_blank" rel="noreferrer">
+						<div class="friend-card__avatar">
+							{friend.name.charAt(0)}
+						</div>
+						<div class="friend-card__info">
+							<h3>{friend.name}</h3>
+							<p data-i18n={friend.descKey}>{friend.desc}</p>
+						</div>
+					</a>
+				))
+			}
+		</div>
+	</section>
+
+	<section class="links-section" data-reveal>
+		<h2 class="links-section__title">
+			<span class="pixel-tag">LINK</span>
+			<span data-i18n="recommendedLinksTitle">推荐链接</span>
+		</h2>
+		<div class="friend-grid friend-grid--compact">
+			{
+				recommended.map((item) => (
+					<a class="friend-card friend-card--compact" href={item.url} target="_blank" rel="noreferrer">
+						<div class="friend-card__info">
+							<h3>{item.name}</h3>
+							<p data-i18n={item.descKey}>{item.desc}</p>
+						</div>
+					</a>
+				))
+			}
+		</div>
+	</section>
+
+	<section class="paper-sheet links-apply" data-reveal>
+		<h3 data-i18n="linksApplyTitle">申请友链</h3>
+		<p data-i18n="linksApplyText">如果你想交换友链，欢迎通过邮件或 GitHub 联系我。</p>
+		<ul>
+			<li data-i18n="linksApplyName">网站名称：Kano no Uta</li>
+			<li data-i18n="linksApplyUrl">网站地址：https://kanonouta.com</li>
+			<li data-i18n="linksApplyDesc">网站描述：Kano 的个人博客</li>
+		</ul>
+	</section>
+</BaseLayout>

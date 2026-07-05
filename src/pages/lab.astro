@@ -1,0 +1,19 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Lab - Kano no Uta" description="Kano no Uta 的实验室页面。" i18nPage="lab">
+	<header class="page-heading" data-reveal>
+		<p class="eyebrow">Lab</p>
+		<h1 data-i18n="labTitlePage">实验室</h1>
+		<p data-i18n="labLead">一些不一定要写成长文章的小玩具、小页面和小地图。</p>
+	</header>
+
+	<section class="post-list" aria-label="实验室项目" data-i18n-aria-label="labProjectsLabel">
+		<a class="post-card" href="/lab/map/" data-reveal>
+			<h2 data-i18n="labMapTitle">足迹地图</h2>
+			<p data-i18n="labMapDesc">把去过的城市点亮，像素风旧地图版。</p>
+			<span>map</span>
+		</a>
+	</section>
+</BaseLayout>

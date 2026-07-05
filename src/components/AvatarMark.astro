@@ -1,0 +1,12 @@
+---
+interface Props {
+	size?: 'sm' | 'md' | 'lg';
+}
+
+const { size = 'md' } = Astro.props;
+---
+
+<div class:list={['avatar-mark', `avatar-mark--${size}`]} aria-label="Kano">
+	<span>歌</span>
+</div>
+

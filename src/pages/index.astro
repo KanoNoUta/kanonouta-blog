@@ -1,49 +1,142 @@
 ---
-import BaseHead from '../components/BaseHead.astro';
-import Footer from '../components/Footer.astro';
-import Header from '../components/Header.astro';
-import { SITE_DESCRIPTION, SITE_TITLE } from '../consts';
+import { getCollection } from 'astro:content';
+import PostTimeline from '../components/PostTimeline.astro';
+import SectionHeading from '../components/SectionHeading.astro';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { sortPosts } from '../lib/posts';
+
+const posts = sortPosts(await getCollection('blog'));
+const charCount = posts.reduce(
+	(count, post) => count + Array.from((post.body ?? '').replace(/\s+/g, '')).length,
+	0,
+);
 ---
 
-<!doctype html>
-<html lang="en">
-	<head>
-		<BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
-	</head>
-	<body>
-		<Header />
-		<main>
-			<h1>🧑‍🚀 Hello, Astronaut!</h1>
-			<p>
-				Welcome to the official <a href="https://astro.build/">Astro</a> blog starter template. This template
-				serves as a lightweight, minimally-styled starting point for anyone looking to build a personal
-				website, blog, or portfolio with Astro.
+<BaseLayout class="home-page" i18nPage="home">
+	<section class="home-hero hero-scroll-container" aria-labelledby="home-title">
+		<div class="hero-glow hero-exit-bg" aria-hidden="true"></div>
+		<div class="hero-copy">
+			<h1 id="home-title" class="hero-motion hero-motion--title hero-exit-text">
+				<span><span data-i18n="homeHeroGreetingPrefix">Hi, I'm </span><strong>Kano</strong><span data-i18n="homeHeroGreetingSuffix"></span><span class="wave-hand">◇</span></span>
+			</h1>
+			<p class="hero-lead hero-motion hero-motion--lead hero-exit-meta">
+				「夏が僕らを呼ぶのなら」
 			</p>
-			<p>
-				This template comes with a few integrations already configured in your
-				<code>astro.config.mjs</code> file. You can customize your setup with
-				<a href="https://astro.build/integrations">Astro Integrations</a> to add tools like Tailwind,
-				React, or Vue to your project.
-			</p>
-			<p>Here are a few ideas on how to get started with the template:</p>
-			<ul>
-				<li>Edit this page in <code>src/pages/index.astro</code></li>
-				<li>Edit the site header items in <code>src/components/Header.astro</code></li>
-				<li>Add your name to the footer in <code>src/components/Footer.astro</code></li>
-				<li>Check out the included blog posts in <code>src/content/blog/</code></li>
-				<li>Customize the blog post page layout in <code>src/layouts/BlogPost.astro</code></li>
-			</ul>
-			<p>
-				Have fun! If you get stuck, remember to
-				<a href="https://docs.astro.build/">read the docs</a>
-				or <a href="https://astro.build/chat">join us on Discord</a> to ask questions.
-			</p>
-			<p>
-				Looking for a blog template with a bit more personality? Check out
-				<a href="https://github.com/Charca/astro-blog-template">astro-blog-template</a>
-				by <a href="https://twitter.com/Charca">Maxi Ferreira</a>.
-			</p>
-		</main>
-		<Footer />
-	</body>
-</html>
+			<div class="hero-stats hero-motion hero-motion--stats hero-exit-meta" aria-label="站点统计" data-i18n-aria-label="homeStatsLabel">
+				<span>{posts.length} <span data-i18n="unitPost">篇</span></span>
+				<span>·</span>
+				<span><span data-i18n="wordPrefix">约</span> {charCount} <span data-i18n="unitWord">字</span></span>
+				<span>·</span>
+				<span class="ai-pill">
+					<span class="ai-spark">✦</span>
+					<span data-i18n="staticSite">Astro 静态站</span>
+					<span class="ai-caret"></span>
+				</span>
+			</div>
+			<div class="hero-actions hero-motion hero-motion--actions hero-exit-meta">
+				<a class="icon-link" href="/blog" aria-label="文章" title="文章" data-i18n="iconPostsText" data-i18n-aria-label="iconPostsLabel" data-i18n-title="iconPostsLabel">文</a>
+				<a class="icon-link" href="/about" aria-label="关于" title="关于" data-i18n="iconAboutText" data-i18n-aria-label="iconAboutLabel" data-i18n-title="iconAboutLabel">我</a>
+				<a class="icon-link" href="/rss.xml" aria-label="RSS" title="RSS">R</a>
+			</div>
+			<div class="hero-social hero-motion hero-motion--social hero-exit-meta">
+				<a class="social-link" href="https://github.com" target="_blank" rel="noreferrer" aria-label="GitHub" title="GitHub">
+					<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+				</a>
+				<a class="social-link" href="mailto:hello@example.com" aria-label="Email" title="Email">
+					<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+				</a>
+				<a class="social-link" href="https://twitter.com" target="_blank" rel="noreferrer" aria-label="X (Twitter)" title="X">
+					<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+				</a>
+			</div>
+		</div>
+		<div class="hero-portrait hero-motion hero-motion--portrait hero-exit-avatar" aria-hidden="true">
+			<img src="/images/kano-rounded-avatar.png" alt="" loading="eager" decoding="async" />
+		</div>
+		<div class="scroll-hint hero-motion hero-motion--hint hero-exit-meta" aria-hidden="true">
+			<span></span>
+		</div>
+	</section>
+
+	<section class="second-screen" aria-label="站点状态" data-i18n-aria-label="homeSecondLabel" data-reveal>
+		<div class="second-screen__quote" data-reveal>
+			<p>「僕らはきっと強くなれる　上を向ける　また歩ける」</p>
+		</div>
+		<div class="pixel-console" data-reveal>
+			<div class="pixel-console__bar">
+				<span data-i18n="consoleAreaStatus">AREA STATUS</span>
+				<i aria-hidden="true"></i>
+			</div>
+			<div class="pixel-console__body">
+				<div class="pixel-console__meter" aria-hidden="true">
+					<span style="--meter-index: 0;"></span>
+					<span style="--meter-index: 1;"></span>
+					<span style="--meter-index: 2;"></span>
+					<span style="--meter-index: 3;"></span>
+					<span style="--meter-index: 4;"></span>
+				</div>
+				<dl>
+					<div>
+						<dt data-i18n="consolePosts">POSTS</dt>
+						<dd>{String(posts.length).padStart(2, '0')}</dd>
+					</div>
+					<div>
+						<dt data-i18n="consoleWords">WORDS</dt>
+						<dd>{charCount}</dd>
+					</div>
+					<div>
+						<dt data-i18n="consoleMode">MODE</dt>
+						<dd data-i18n="consoleStatic">STATIC</dd>
+					</div>
+				</dl>
+			</div>
+		</div>
+		<div class="site-windsock" aria-hidden="true" data-reveal>
+			<span></span>
+			<span></span>
+			<span></span>
+			<span></span>
+		</div>
+	</section>
+
+	<section class="content-grid" aria-label="主页内容" data-i18n-aria-label="homeContentLabel" data-reveal>
+		<div data-reveal>
+			<SectionHeading label="Recent Writing" title="近期笔墨" labelKey="homeRecentLabel" titleKey="homeRecentTitle" />
+			<PostTimeline posts={posts} limit={5} />
+		</div>
+
+		<aside data-reveal>
+			<div class="quiet-panel" data-reveal>
+				<h3 data-i18n="homeThoughtsTitle">碎念</h3>
+				<p data-i18n="homeThoughtsText">
+					博客先从简单开始：写文章、存档、RSS、友链。复杂的东西慢一点长出来，比较像真的生活。
+				</p>
+			</div>
+			<div class="quiet-panel" data-reveal>
+				<h3 data-i18n="homeTodoTitle">待补</h3>
+				<ul>
+					<li data-i18n="homeTodoMigrate">迁移旧文章</li>
+					<li data-i18n="homeTodoLinks">友链页</li>
+					<li data-i18n="homeTodoTags">标签和归档</li>
+					<li data-i18n="homeTodoComments">评论系统</li>
+				</ul>
+			</div>
+		</aside>
+	</section>
+
+	<section class="home-closing" aria-label="站点动作" data-i18n-aria-label="homeClosingLabel" data-reveal>
+		<p class="closing-line" data-i18n="homeClosingLine1">High summer greetings</p>
+		<p class="closing-line" data-i18n="homeClosingLine2">Welcome to write</p>
+		<div class="closing-actions">
+			<a href="/links">
+				<span data-i18n="homeClosingLeave">Leave a mark</span>
+				<small data-i18n="homeClosingFriends">♥ 友链</small>
+			</a>
+			<span class="closing-divider"></span>
+			<a href="/rss.xml">
+				<span data-i18n="homeClosingSubscribe">Subscribe</span>
+				<small data-i18n="homeClosingSubscribeSub">Never miss a letter</small>
+			</a>
+		</div>
+	</section>
+</BaseLayout>
