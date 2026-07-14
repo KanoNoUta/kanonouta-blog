@@ -22,6 +22,22 @@ const {
 <!doctype html>
 <html lang="zh-CN">
 	<head>
+		<script is:inline>
+			const characterBackgrounds = [
+				{ id: 'emilia', url: '/images/backgrounds/re0-emilia-flat.png' },
+				{ id: 'beatrice', url: '/images/backgrounds/re0-beatrice-flat.png' },
+				{ id: 'ram', url: '/images/backgrounds/re0-ram-flat.png' },
+				{ id: 'rem', url: '/images/backgrounds/re0-rem-flat.png' },
+			];
+			const selectedBackground =
+				characterBackgrounds[Math.floor(Math.random() * characterBackgrounds.length)];
+
+			document.documentElement.style.setProperty(
+				'--page-character-background',
+				`url("${selectedBackground.url}")`,
+			);
+			document.documentElement.dataset.characterBackground = selectedBackground.id;
+		</script>
 		<BaseHead title={title} description={description} />
 	</head>
 	<body data-i18n-page={i18nPage}>

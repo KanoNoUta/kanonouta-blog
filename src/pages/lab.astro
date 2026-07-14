@@ -9,11 +9,18 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 		<p data-i18n="labLead">一些不一定要写成长文章的小玩具、小页面和小地图。</p>
 	</header>
 
-	<section class="post-list" aria-label="实验室项目" data-i18n-aria-label="labProjectsLabel">
+	<section class="post-list post-list--lab" aria-label="实验室项目" data-i18n-aria-label="labProjectsLabel">
 		<a class="post-card" href="/lab/map/" data-reveal>
-			<h2 data-i18n="labMapTitle">足迹地图</h2>
-			<p data-i18n="labMapDesc">把去过的城市点亮，像素风旧地图版。</p>
-			<span>map</span>
+			<span class="post-card__marker" aria-hidden="true">01</span>
+			<div class="post-card__body">
+				<div class="post-card__meta">
+					<span>Lab</span>
+					<span aria-hidden="true">·</span>
+					<span data-i18n="map">地图</span>
+				</div>
+				<h2 data-i18n="labMapTitle">足迹地图</h2>
+				<p data-i18n="labMapDesc">把去过的城市点亮，像素风旧地图版。</p>
+			</div>
 		</a>
 	</section>
 </BaseLayout>

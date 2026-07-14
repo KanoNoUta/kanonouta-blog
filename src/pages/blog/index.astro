@@ -17,11 +17,20 @@ const posts = sortPosts(await getCollection('blog'));
 
 	<section class="post-list" aria-label="文章列表" data-i18n-aria-label="blogListLabel">
 		{
-			posts.map((post) => (
+			posts.map((post, index) => (
 				<a class="post-card" href={getPostSlug(post)} data-reveal>
-					<h2 data-i18n={`post.${post.id}.title`}>{post.data.title}</h2>
-					<p data-i18n={`post.${post.id}.description`}>{post.data.description}</p>
-					<FormattedDate date={post.data.pubDate} />
+					<span class="post-card__marker" aria-hidden="true">
+						{String(index + 1).padStart(2, '0')}
+					</span>
+					<div class="post-card__body">
+						<div class="post-card__meta">
+							<span data-i18n="articleType">文章</span>
+							<span aria-hidden="true">·</span>
+							<FormattedDate date={post.data.pubDate} />
+						</div>
+						<h2 data-i18n={`post.${post.id}.title`}>{post.data.title}</h2>
+						<p data-i18n={`post.${post.id}.description`}>{post.data.description}</p>
+					</div>
 				</a>
 			))
 		}
