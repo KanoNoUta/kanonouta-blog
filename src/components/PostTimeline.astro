@@ -12,21 +12,23 @@ const { posts, limit } = Astro.props;
 const visiblePosts = typeof limit === 'number' ? posts.slice(0, limit) : posts;
 ---
 
-<div class="post-timeline">
+<div class="post-list">
 	{
 		visiblePosts.map((post, index) => (
-			<article class="timeline-item" data-reveal style={`--timeline-index: ${index};`}>
-				<span class="timeline-index">{String(index + 1).padStart(2, '0')}</span>
-				<a href={getPostSlug(post)}>
-					<div class="timeline-meta">
+			<a class="post-card" href={getPostSlug(post)} data-reveal>
+				<span class="post-card__marker" aria-hidden="true">
+					{String(index + 1).padStart(2, '0')}
+				</span>
+				<div class="post-card__body">
+					<div class="post-card__meta">
 						<span data-i18n="articleType">文章</span>
-						<span>·</span>
+						<span aria-hidden="true">·</span>
 						<FormattedDate date={post.data.pubDate} />
 					</div>
 					<h3 data-i18n={`post.${post.id}.title`}>{post.data.title}</h3>
 					<p data-i18n={`post.${post.id}.description`}>{post.data.description}</p>
-				</a>
-			</article>
+				</div>
+			</a>
 		))
 	}
 </div>
