@@ -1224,6 +1224,475 @@ const articleTranslations: ArticleTranslations = {
 			<p>The next step is to keep refining it into a tool people genuinely want to use for writing timelines.</p>
 		`, [0]),
 	},
+	'raphael-crafting-solver-ruri': {
+		ja: withCodeBlocks(`
+			<blockquote><p>Ruri は現在も FFXIV 中国版 7.51、Dalamud CN API 15 向けに開発中のプラグインです。この記事で扱うのはソルバー設計、オフラインシミュレーション、自動検証です。実クライアントで検証を終えていない部分を、安定動作済みとは書きません。</p></blockquote>
+
+			<p>今回の開発は、「すごいアルゴリズムを実装しよう」と考えたところから始まったわけではありません。</p>
+			<p>始まりは、ひどく単純なエラーでした。</p>
+			<p>Ruri に Recipe 37825 を製作させた時のことです。キャラクターは 664 CP、必要工数は 10040、最大品質は 21200。旧ソルバーは最初の一手でこう返しました。</p>
+			{{code:0}}
+			<p>このメッセージは、それだけで矛盾しています。楽観的な品質上限が目標をはるかに上回っているのに、同時に目標は到達不能だと断言しているからです。</p>
+			<p>原因は、旧ロジックが最初に「工数の完了だけを保証する」保守的な終了経路を探していたことでした。その経路は品質を上げないので、最終品質は当然 0 です。ところがプログラムは「この終了経路に品質がない」を「どの経路でも品質を得られない」と解釈し、本当の品質探索を始める前に停止していました。</p>
+			<p>この問題で、私は一見単純な問いを整理し直すことになりました。<strong>製作ソルバーは、そもそも何を解いているのか。</strong></p>
+			<p>答えは固定のスキル列ではありません。限られた資源、複雑なルール、変化する状態の中で、工数を完成させ、同時に品質目標も満たす経路を探すことです。</p>
+			<p>この方向から、私は <a href="https://github.com/KonaeAkira/raphael-rs">Raphael</a> を詳しく調べ始めました。最も興味を引かれたのは「マクロを計算できる」ことではなく、FFXIV の製作を明快な探索問題として捉えている点でした。</p>
+			<p>この記事では Raphael のアルゴリズム構造を中心に、そこから得た考え方を Ruri へどう組み込んだかを説明します。先に境界を明確にしておくと、現在の Ruri は <strong>Raphael-inspired な有界グローバル探索</strong>です。<code>raphael-rs</code> の逐語的な移植ではなく、Raphael と同じ厳密な大域最適性もまだ主張できません。</p>
+
+			<h2>まず製作を一つの状態として書く</h2>
+			<p>プレイヤーに見えるのは耐久、CP、工数、品質です。ソルバーが扱う状態は、もう少し複雑です。</p>
+			{{code:1}}
+			<p>スキルを一つ使うたびに、状態は一つの辺を通って次へ移ります。</p>
+			{{code:2}}
+			<p>スキルと現在の状態が決定的なら、<code>outcome</code> も決定的で、これは通常の状態遷移です。成功率を持つアクションや次の状態を確率で展開する場合は、遷移が複数の枝に分かれます。</p>
+			<p>したがって、製作全体は有向グラフとして見ることができます。</p>
+			{{code:3}}
+			<p>目標も単一のスコアではなく、優先順位を持つ制約です。</p>
+			<ol>
+				<li>まず製作を完了する。工数が満たされない案は候補になりません。</li>
+				<li>HQ または収集品の品質しきい値を満たす。</li>
+				<li>その二つを満たした後で、品質、手数、時間、残り資源を比較する。</li>
+			</ol>
+			<p>この順序は重要です。少し品質が高い代わりに最後まで完成できない経路は選べません。また、「目標に近そう」というだけで成功扱いにもできません。</p>
+
+			<h2>四手の小さな例を手で解く</h2>
+			<p>ゲーム内の数十個のアクションはいったん忘れ、三つの仮想アクションだけを考えます。目標は工数 100、品質 80。初期資源は耐久 30、CP 36 です。</p>
+			<table><thead><tr><th>アクション</th><th>消費</th><th>効果</th></tr></thead><tbody>
+				<tr><td>Innovation</td><td>18 CP</td><td>次の Touch の品質を 2 倍にする</td></tr>
+				<tr><td>Touch</td><td>18 CP、耐久 10</td><td>品質を 40 増やす</td></tr>
+				<tr><td>Synthesis</td><td>耐久 10</td><td>工数を 50 増やす</td></tr>
+			</tbody></table>
+			<p>目先の利益だけを見ると Touch を二回使いたくなります。状態は <code>p=0, q=0, d=30, cp=36</code> から <code>p=0, q=80, d=10, cp=0</code> になります。品質は達成しましたが、残り耐久では Synthesis を一回しか使えず、工数は最大 50 で失敗します。</p>
+			<p>実行可能な経路は <code>Innovation → Touch → Synthesis → Synthesis</code> です。Innovation は耐久を使わず、強化された Touch 一回で品質 80 を得ます。残り耐久 20 で Synthesis を二回使い、最終状態は <code>p=100, q=80, d=0, cp=0</code> になります。</p>
+			<p>この小さな例だけでも、三つの難しさが見えます。</p>
+			<ol>
+				<li>局所的に最も利益の高いアクションが、大域的に実行可能な経路へ属するとは限らない。</li>
+				<li>品質と工数は同じ耐久と CP を奪い合うため、独立した二問題として解けない。</li>
+				<li>実行可能な経路を見つけた後も、より短い経路や品質の高い経路がないか判断する必要がある。</li>
+			</ol>
+			<p>総当たりなら四手の組み合わせを全部試せます。しかし実際のレシピには二十以上の候補、数十手の深さ、多数の Buff 状態があります。Raphael の目的は、最適経路を落とさずに、望みのない組み合わせを深い探索へ入れないことです。</p>
+
+			<h2>なぜすべての可能性を総当たりできないのか</h2>
+			<p>各ステップで平均 20 個のアクションが選べ、計画の深さが 40 だとします。素朴な探索空間の上限はこうなります。</p>
+			{{code:4}}
+			<p>実際に計算する意味のない大きさです。レベル、CP、耐久、前提条件で多くのスキルが使えなくなっても、状態数は急速に増えます。</p>
+			<p>さらに、異なる順序が「効果の文脈は同じだが資源量だけが違う」状態へ到達する場合があります。Buff、状態、コンボ条件が同じで、一方が工数、品質、耐久、CP のすべてで優れているなら、弱い方を探索し続けても同じ仕事を繰り返すだけです。</p>
+			<p>つまりソルバーの核心は探索そのものではなく、<strong>どの枝を早い段階で捨ててもよいと証明するか</strong>にあります。</p>
+			<p>Raphael は best-first search、branch-and-bound、動的計画法、Pareto 最適化を組み合わせ、専用のサブソルバーから主探索へ上限と下限を供給します。</p>
+
+			<h2>Raphael の主構造：DAG 上の最短路として考える</h2>
+			<p>Raphael は製作状態をノード、合法なアクションを辺として扱います。主探索は生成順に深く潜るのではなく、最も有望なノードから展開します。</p>
+			<p><code>A(s)</code> を状態 <code>s</code> で使えるアクション集合、<code>T(s,a)</code> をアクション後の状態、<code>P*</code> と <code>Q*</code> を目標工数と目標品質とします。探索中に見つかった最良の完全解は incumbent として保存します。</p>
+			<p>各未展開状態に対し、サブソルバーは最大工数、最大品質、最低残り手数という楽観評価を返します。楽観評価は未来を現実より良く見ることはあっても、悪く見てはいけません。その楽観評価でさえ incumbent に勝てないなら、実際の経路も勝てないため、安全に枝を捨てられます。</p>
+			<p>理解のために簡略化した擬似コードは次のようになります。</p>
+			{{code:5}}
+			<p><code>queue.popBest()</code> が best-first です。最も期待できる状態から調べます。解が見つかった後、incumbent で後続探索を制限するのが branch-and-bound です。upper bound は枝が到達できる「最高の幻想」、incumbent は実際に得た「現在の最高記録」です。幻想でさえ記録に勝てなければ、それ以上調べる必要はありません。</p>
+			<p>ここでは二つの結論を分ける必要があります。</p>
+			<ul>
+				<li><strong>実行可能解を見つけた</strong>：工数と品質を満たす経路が一つある。</li>
+				<li><strong>最適解を証明した</strong>：未展開の全経路について、楽観上限でも現在解を超えられない。</li>
+			</ul>
+			<p>最初の解が見つかっただけでは最適ではありません。時間またはノード予算が先に尽きた場合は bounded result であり、exact optimal とは呼べません。</p>
+			<p>このアルゴリズムの美しさは主ループではなく、周囲の「証明器」にあります。</p>
+
+			<h2>FinishSolver：まず最後まで作れるかを問う</h2>
+			<p>品質がどれほど高くても、残り耐久と CP で工数を満たせない状態は行き止まりです。</p>
+			<p><code>FinishSolver</code> は品質を一度脇に置き、現在の状態から理論上どこまで工数を伸ばせるかだけを考えます。</p>
+			<p>memo 付きの再帰としては、<code>F(s) = max(Δprogress(s,a) + F(T(s,a)))</code> と表せます。<code>a</code> は終了に使えるアクションだけです。同じ CP、耐久、工数状態が再び現れたら、計算済みの <code>F(s)</code> を再利用します。</p>
+			<p><code>state.progress + F(state) &lt; P*</code> なら、未来を最も有利に並べても工数が不足するため、初めて「完成不能」を証明できます。小さな例で Touch を二回使った後は耐久 10 なので、<code>F(s)</code> は最大 50。<code>0 + 50 &lt; 100</code> となり、その枝は直ちに削除されます。</p>
+			<p>安全な枝刈りのため、この見積もりは楽観的でなければなりません。将来は常に効率の良い進捗アクションを使える、資源交換が実際より少し有利だ、と仮定しても構いません。しかし現実の上限を過小評価してはいけません。</p>
+			<ul>
+				<li>上限が高すぎる場合、枝刈りが減って性能が落ちます。</li>
+				<li>上限が低すぎる場合、本来可能な経路を削除し、正しさを壊します。</li>
+			</ul>
+			<p>Ruri の <code>ProgressFeasibilitySolver</code> もこの原則に従います。耐久回復と Waste Not の効果を意図的に大きく見積もり、CP から得られる行動回数も緩めに計算します。その広い見積もりでも工数を完成できない時だけ、物理的に不可能と判断できます。</p>
+			<p>Recipe 37825 の修正で最初に分けたのもこの境界でした。<strong>工数用の終了経路は工数だけを証明するものであり、progress-only 経路の品質が 0 だからといって HQ 目標全体を否定してはいけません。</strong></p>
+
+			<h2>QualityUbSolver：品質は最大でどこまで伸びるか</h2>
+			<p>工数を完成できても、HQ や収集品の品質目標に届くとは限りません。そこで残り資源から得られる品質の上限を見積もります。</p>
+			<p>Raphael の <code>QualityUbSolver</code> は、耐久、Manipulation、専門アクションなどを計算しやすい共通予算へ緩和し、動的計画法で工数と品質の Pareto frontier を維持します。</p>
+			<p>残り資源を全部品質へ使った最大値だけでは、工数用の資源を忘れてしまいます。必要なのは、例えば <code>(追加工数 100, 追加品質 80)</code> と <code>(追加工数 150, 追加品質 50)</code> のような、互いに支配されない組み合わせの集合です。前者は品質、後者は工数で優れるため、両方に価値があります。</p>
+			<p>各アクションの <code>(Δprogress, Δquality)</code> を次状態の Pareto 集合へ加え、他の点に両方で負ける結果を消すことで、「残り資源と交換できる工数・品質の境界」を得ます。</p>
+			<p>小さな例で最初の Touch 後にもう一度 Touch すれば品質 80 ですが、残り工数は 50 までです。耐久を二回の Synthesis に使えば工数 100 ですが、品質は 40 のままです。個別の最大値は 100 と 80 でも、同時には取得できません。結合 Pareto 境界なら、その枝が目標 <code>(100,80)</code> に届かないと分かります。</p>
+			<p>Ruri の現在の実装はもっと単純で、より保守的です。<code>QualityUpperBoundSolver</code> は、残りの品質アクションがすべて非常に理想的な状況で使えると仮定します。</p>
+			<ul>
+				<li>Excellent が最高の品質倍率を与える。</li>
+				<li>Innovation と Great Strides の恩恵を同時に受ける。</li>
+				<li>Inner Quiet は最大スタックとして扱う。</li>
+				<li>残り耐久と CP はできるだけ多くの品質アクションへ交換できる。</li>
+			</ul>
+			<p>これは現実の計画ではなく、意図的に膨らませた天井です。そんな理想的な世界でも目標へ届かない時にだけ、その枝を安全に削除できます。</p>
+			{{code:6}}
+			<p>二つ目は「まだ不可能だと証明できない」という意味であり、実行可能性の証明ではありません。旧ソルバーはこの二つを取り違えていました。</p>
+
+			<h2>StepLbSolver：最低でもあと何手必要か</h2>
+			<p>CP が十分にあると、工数と品質の上限は広くなり、枝刈りの力が弱まります。そこで Raphael は、どれほど理想的に進んでも工数と品質を同時に満たすまで最低何手必要か、という下界も計算します。</p>
+			<p>目標達成時を <code>L(s)=0</code>、それ以外を <code>L(s)=1+min L(T(s,a))</code> とする最短路型の再帰です。安全な下界にするため、CP 制約を一部無視するなど未来を有利に緩和できますが、最低手数を現実より大きく見積もってはいけません。</p>
+			<p>現在の経路が 25 手、少なくとも残り 8 手必要で、すでに 30 手の解が見つかっているなら、その経路は手数で勝てません。</p>
+			<p>ただし、手数比較は上位目標が同じ時だけ有効です。短い未達成案で、長い最大品質案を支配することはできません。</p>
+			<p>Ruri には現在、レシピ内で最大の進捗 potency から終了手数を見積もる簡易 <code>FinishStepLowerBound</code> があります。しかし Raphael の完全な <code>StepLbSolver</code> DP はまだ実装していません。そのため、今は厳密な最適性証明よりキュー順序の補助に使っています。</p>
+
+			<h2>Pareto 枝刈り：本当に違う状態だけを残す</h2>
+			<p>同じ状態、前のアクション、Buff の残り時間、有限資源を持つ A と B があり、A が次の条件を満たすとします。</p>
+			{{code:7}}
+			<p>少なくとも一項で厳密に優れていれば、A は B を支配します。B からできることは通常 A からもでき、しかも資源は悪化していないため、B を探索し続ける必要はありません。</p>
+			<p>実装では四つの数値だけを比べてはいけません。Buff の残り時間、球色、前のアクションが違えば、後続アクションの合法性と価値が変わります。</p>
+			<p>そこで Ruri は <code>FrontierKey</code> に Condition、PreviousAction、各 Buff の残り回数、Inner Quiet、Heart and Soul、Trained Perfection などを含めます。key が同じ状態だけを工数、品質、耐久、CP で比較し、弱い状態を捨てます。</p>
+			<p>これは通常の重複除去を強化したものです。完全に同じ状態だけでなく、重要な全次元で劣る状態も削除できます。</p>
+			<p>Raphael は大規模な状態集合に対してバケットと近似 Pareto frontier を使い、支配判定の費用を抑えます。Ruri はまだ等価コンテキストごとのリスト比較で、規模も実装もより素朴です。</p>
+
+			<h2>Ruri で各部品をどう接続したか</h2>
+			<p>現在、Ruri の品質目標は <code>GlobalCraftSearchSolver</code> へ送られます。構造はおおよそ次の通りです。</p>
+			{{code:8}}
+			<p><code>CraftSimulator</code> はシステム全体の真値です。アクションの合法性、CP と耐久の消費、工数と品質の増加、Buff の更新は、すべて同じシミュレーターを通ります。探索用と実行用で別のルールを持てば、両者はいつか必ずずれます。</p>
+			<p>探索開始時、Ruri は三つの準備を行います。</p>
+			<ol>
+				<li>状態フィールドとルールセットが完全か検証する。</li>
+				<li>工数の楽観上限で、本当の物理的行き止まりを拒否する。</li>
+				<li>ヒューリスティックプランナーから完成可能な incumbent を作り、最初の候補とする。</li>
+			</ol>
+			<p>ノードはその後 PriorityQueue に入ります。優先度は現在の品質と工数、両方の楽観上限、終了までの下界、残り CP と耐久を見ます。品質だけで並べると、前半で資源をすべて品質に使い、最後に工数を完成できないという元の問題を繰り返します。</p>
+			<p>現在は、Inner Quiet と品質 Buff を立ち上げる段階には余地を与え、品質が成熟したら工数側のボトルネックを優先するバランス型の順序を使っています。これは Raphael の元の評価関数ではなく、Ruri のリアルタイム再計画向けの工程上の選択です。</p>
+			<table><thead><tr><th>役割</th><th>Raphael の完全な考え方</th><th>Ruri の現在</th></tr></thead><tbody>
+				<tr><td>主探索</td><td>Best-first + branch-and-bound で最適性証明まで探索</td><td>時間・深さ・ノード予算付き PriorityQueue</td></tr>
+				<tr><td>FinishSolver</td><td>圧縮状態 DP による可行性と下界</td><td>楽観工数式 + 有界終了 beam</td></tr>
+				<tr><td>QualityUbSolver</td><td>資源緩和後の工数・品質 Pareto DP</td><td>意図的に緩い品質公式上限</td></tr>
+				<tr><td>StepLbSolver</td><td>DP で安全な手数下界</td><td>最大進捗 potency による簡易推定</td></tr>
+				<tr><td>Pareto</td><td>大規模向けバケット化近似前沿</td><td>等価コンテキスト内のリスト比較</td></tr>
+				<tr><td>確率性</td><td>adversarial 最悪条件モード</td><td>別 expectimax 経路、live は決定的</td></tr>
+			</tbody></table>
+			<p>したがって現在の Ruri が証明するのは、「目標を満たす計画を見つけ、再生検証した」ことです。「すべての合法案の中で最短」とは証明していません。最大品質の終端が見つかると、live 経路は実行可能な最初の一手を返すことを優先し、最短マクロの証明までキューを尽くしません。これがリアルタイム実行とオフライン最適化の中心的な取捨選択です。</p>
+
+			<h2>なぜ「意味のあるアクション列」を追加したのか</h2>
+			<p>一手ずつ展開する方法は明快ですが、live の一秒予算では明らかな中間状態に時間を使い切ることがあります。</p>
+			<p>そこで Ruri は単独アクションに加え、いくつかの意味のある短い列も候補にします。</p>
+			{{code:9}}
+			<p>これらはシミュレーターを迂回するマクロではありません。列の各アクションは一つずつ合法性と状態遷移を検証され、一つでも不正なら列全体をキューへ入れません。</p>
+			<p>検索器へ「よく使う言い回し」を渡し、一文字ずつ文章を組み立て直す回数を減らすようなものです。</p>
+			<p>当然、アクション列、優先度、予算は探索へヒューリスティックな偏りを入れます。実用的な解を早く得る一方で、現在の実装を strict exact solver と呼べない理由にもなります。</p>
+
+			<h2>固定マクロでは足りない：実機ではローリング再計画する</h2>
+			<p>オフラインで完全な計画を得ても、ゲーム内で最初から最後まで機械的に実行すべきとは限りません。</p>
+			<p>実際の製作では状態が変わり、アクションが拒否されることもあり、observer が一時的に完全な状態を読めない場合もあります。Ruri の live 実行は receding horizon、つまりローリングホライズンを使います。</p>
+			{{code:10}}
+			<p>これにより、ソルバーは未来の状態を予知したふりをせず、数十手後までにシミュレーションとゲームの差が蓄積することも避けられます。</p>
+			<p>最初の一手だけを実行しても、完全な計画は無駄ではありません。その計画は現在の一手の後に少なくとも一つの継続経路があることを示し、再観測が次の判断を現実の状態へ戻します。</p>
+			<p>送信後に状態変化が観測できなければ、Ruri は同じアクションを無条件に再送しません。不明な状態、タイムアウト、セッション変更、資源異常はすべて fail closed です。自動化プラグインでは、無理に継続するより勝手に押さないことの方が大切です。</p>
+
+			<h2>確率アクションをどこに置くか</h2>
+			<p>Raphael には adversarial モードがあります。最悪の状態で品質損失を評価し、より大きな計算量と引き換えに状態順序へ強いマクロを探します。これは平均利益を最大化する目標とは異なります。</p>
+			{{code:11}}
+			<p>Ruri の <code>GlobalCraftSearchSolver</code> は現在、決定的で live-safe な経路を担当します。成功率を持つアクションと確率分析は <code>StochasticExpectimaxSolver</code> に分け、decision node と chance node を交互に展開します。</p>
+			<p>保守的 live モードでは、グローバル探索に確率アクションを使わせません。期待値の高い一度の失敗で、確保していた工数終了資源を失う可能性があるためです。将来 adversarial backend を実装するなら expectimax と併存させ、「最悪でも成立」と「平均で高収益」を明確に選べる形にすべきです。</p>
+
+			<h2>Recipe 37825 の修正で本当に変えたこと</h2>
+			<p>最初のエラーログへ戻ります。この最適化は検索器の交換だけでなく、結果の意味そのものを整理する作業になりました。</p>
+
+			<h3>物理状態、注文目標、探索状態を分ける</h3>
+			<p>シミュレーターは工数完了や耐久切れという物理結果だけを答えます。注文層が HQ または収集品品質を判定し、ソルバーは別の状態を返します。</p>
+			<ul>
+				<li><code>Solved</code>：完全な計画を見つけ、独立したシミュレーター再生を通過した。</li>
+				<li><code>Partial</code>：候補はあるが、目標全体を証明していない。</li>
+				<li><code>TimedOut</code>：時間またはノード予算を使い切った。</li>
+				<li><code>Infeasible</code>：到達不能を示す硬い証拠がある。</li>
+				<li><code>Unsupported</code>：ルールモデルが不完全なので推測を拒否した。</li>
+			</ul>
+			<p>以前の最も危険な点は、「この有界探索では見つからなかった」を <code>Infeasible</code> と呼んでいたことです。証明がなければ、正直に timeout または partial と書くべきです。</p>
+
+			<h3>Solved はもう一度シミュレーションする</h3>
+			<p>探索器が <code>Solved</code> を返すと、<code>SolverRouter</code> は新しいシミュレーターを作り、元の状態から全計画を再生します。</p>
+			<ol>
+				<li>各アクションが合法であること。</li>
+				<li>耐久切れではなく、物理的に成功して終了すること。</li>
+				<li>正規化された注文目標の品質を満たすこと。</li>
+			</ol>
+			<p>一つでも失敗すれば結果を降格し、誤った計画はキャッシュへ入りません。「答えを探す側」と「答えを検査する側」を分離した形です。</p>
+
+			<h3>キャッシュもアルゴリズムの正しさに含まれる</h3>
+			<p>キャッシュキーにはレシピデータ、完全な製作状態、目標、リスク設定、時間とノード予算、ルール指紋、アルゴリズムバージョンが入ります。</p>
+			<p><code>CanHq</code>、Buff、前のアクション、ルールバージョンのどれかを落とすと、似ているだけの二つの要求が同じ計画を再利用する可能性があります。誤ったキャッシュヒットは、bug をより高速で安定して再現するだけです。</p>
+
+			<h2>現在の結果と、誇張しない部分</h2>
+			<p>Recipe 37825 の回帰シナリオでは、実機ログから得た製作力 5865、加工精度 5462、CP 664、初期品質 9904、工数目標 10040、品質目標 21200 を使っています。</p>
+			<p>現在のグローバル探索は dry-run 予算内で再生可能な最大品質の完成計画を見つけます。模擬 live 実行も各観測後に再計算し、工数と品質の両方を満たします。PreviousAction が取得できない場合、早すぎる Immaculate Mend、耐久 5、すでに物理的な行き止まりに入った状態も回帰テストへ含めました。</p>
+			<p>ただし、次の注記は残ります。</p>
+			<ul>
+				<li>確実な終了経路探索は幅 16、最大 8192 展開の有界 beam で、Raphael の完全な DP ではありません。</li>
+				<li>品質上界は緩い公式上界で、CP 共通予算と完全な Pareto DP は未実装です。</li>
+				<li>手数下界は簡易推定です。</li>
+				<li>主探索には live 一秒、深さ、ノード数の予算があります。</li>
+				<li>バランス評価と意味的アクション列を使うため、bounded / heuristic であり厳密な最適性証明はありません。</li>
+				<li>確率状態に対する adversarial 探索はまだありません。</li>
+				<li>自動テストはシミュレーション契約を証明するもので、すべてのレシピを中国版実クライアントで検証したことにはなりません。</li>
+			</ul>
+			<p>私はこれらの境界を少し格好悪くても明記したいと思います。アルゴリズムが信頼できるかどうかは、まず自分が何を証明できるのかを正直に述べているかで決まるからです。</p>
+
+			<h2>次にどう最適化するか</h2>
+			<p>Raphael にさらに近づけるなら、順序は次のようになります。</p>
+			<p>第一に、FinishSolver を独立した動的計画問題にします。現在の beam は終了経路を速く見つけられますが、「見つからない」が常に「存在しない」を意味するわけではありません。より強い memo と状態圧縮で、この不確実性を減らせます。</p>
+			<p>第二に、より厳密な品質上界を実装します。耐久、Manipulation、有限資源を共通予算へ変換し、<code>(progress, quality)</code> Pareto frontier を維持します。上界が引き締まるほど、主探索は現実には成立しない高品質経路へ時間を使わずに済みます。</p>
+			<p>第三に、完全な StepLbSolver を追加します。特に資源が豊富な後半で、ある経路が手数で incumbent を超えられないことを証明できます。</p>
+			<p>第四に、リスト式 Pareto frontier をバケット構造へ変え、状態遷移、上限・下限、支配判定のどこに時間がかかっているか計測します。</p>
+			<p>第五に、adversarial モードと Monte Carlo 再生を加えます。前者は最悪状態で成功するか、後者は確率モデル上で HQ や収集品段階へ届く確率を答えます。</p>
+			<p>並列化は最後です。十分な枝刈りがないままスレッドを増やしても、不要な状態を速く作るだけです。</p>
+
+			<h2>最後に</h2>
+			<p>Raphael を調べて、製作ソルバーに対する私の見方は大きく変わりました。これは手順を暗記する仕組みではありません。</p>
+			<p>本当に扱っているのは、一連の証明です。</p>
+			<ul>
+				<li>FinishSolver は、この経路にまだ完成能力があることを示す。</li>
+				<li>QualityUbSolver は、目標品質を追う資格が残っているかを示す。</li>
+				<li>StepLbSolver は、現在の答えより短くなり得るかを示す。</li>
+				<li>Pareto frontier は、どの状態が単に劣った重複かを示す。</li>
+				<li>独立再生は、探索器の答えが本当にルールを満たすかを示す。</li>
+			</ul>
+			<p>Ruri はまだこの道の一部しか進んでおらず、live 一秒予算のために多くの現実的な妥協もしています。それでも Recipe 37825 の誤判定から、一つの原則をコードへ刻むことができました。</p>
+			<blockquote><p>答えを見つけられなかったことは、答えが存在しないことを意味しない。証明を示せる時だけ、実行不可能だと言える。</p></blockquote>
+			<p>この原則は、どんな一つの製作マクロより重要です。</p>
+
+			<h2>参考資料</h2>
+			<ul>
+				<li><a href="https://github.com/KonaeAkira/raphael-rs">KonaeAkira/raphael-rs</a></li>
+				<li><a href="https://github.com/KonaeAkira/raphael-rs/wiki/Algorithm-Overview">Raphael Algorithm Overview</a></li>
+				<li><a href="https://github.com/Tnze/ffxiv-best-craft">Tnze/ffxiv-best-craft</a></li>
+				<li><a href="https://github.com/PunishXIV/Artisan">PunishXIV/Artisan</a></li>
+			</ul>
+		`, Array.from({ length: 12 }, (_, index) => index)),
+		en: withCodeBlocks(`
+			<blockquote><p>Ruri is still a development-stage plugin for FFXIV China 7.51 and Dalamud CN API 15. This article covers solver design, offline simulation, and automated verification. I will not describe anything that still lacks real-client validation as stable.</p></blockquote>
+
+			<p>This work did not begin with a plan to implement an impressive algorithm.</p>
+			<p>It began with a rather foolish error.</p>
+			<p>I was asking Ruri to craft Recipe 37825. The character had 664 CP, the progress target was 10040, and maximum quality was 21200. The old solver stopped on the very first step with this result:</p>
+			{{code:0}}
+			<p>The message gives itself away. It says the optimistic quality ceiling is far above the target, then declares the target unreachable in the same breath.</p>
+			<p>The old logic first searched for a conservative finish path that guaranteed progress only. Naturally, that path did not perform quality actions, so its final quality was zero. The program then confused “this finish path gains no quality” with “no possible path can gain enough quality” and returned before the real quality search even began.</p>
+			<p>That bug forced me to revisit a deceptively simple question: <strong>what is a crafting solver actually solving?</strong></p>
+			<p>The answer is not a fixed list of actions. It is a path through a state space with limited resources, complicated rules, and changing conditions, where progress must finish and the requested quality target must also be met.</p>
+			<p>That led me to study <a href="https://github.com/KonaeAkira/raphael-rs">Raphael</a> in earnest. The most interesting part was not that it could generate a macro. It was the clarity with which it turned FFXIV crafting into a search problem.</p>
+			<p>This article focuses on Raphael's algorithmic structure and then explains how I brought some of those ideas into Ruri. The boundary matters: Ruri currently implements a <strong>Raphael-inspired bounded global search</strong>. It is not a line-by-line port of <code>raphael-rs</code>, and it does not yet have Raphael's strict global-optimality guarantees.</p>
+
+			<h2>Start by Writing Crafting as State</h2>
+			<p>A player sees durability, CP, progress, and quality. A solver has to see considerably more.</p>
+			{{code:1}}
+			<p>Every action moves the craft along an edge into a new state:</p>
+			{{code:2}}
+			<p>If the action and current condition are deterministic, the outcome is deterministic as well. An action with a success rate, or a next condition expanded by probability, produces several transition branches.</p>
+			<p>The complete craft can therefore be viewed as a directed graph:</p>
+			{{code:3}}
+			<p>The objective is not one score either. It is a set of lexicographically ordered constraints:</p>
+			<ol>
+				<li>The craft must finish. A plan with incomplete progress is not useful.</li>
+				<li>The plan must meet the HQ or collectable quality threshold.</li>
+				<li>Only after those constraints are satisfied do quality, steps, duration, and remaining resources become tie-breakers.</li>
+			</ol>
+			<p>This ordering matters. A little more quality cannot justify a path that eventually fails to finish, and a state that merely looks close to the goal is not a success.</p>
+
+			<h2>Work Through a Four-Step Example by Hand</h2>
+			<p>Forget the dozens of real game actions for a moment and keep only three fictional ones. The goal is 100 progress and 80 quality, starting with 30 durability and 36 CP.</p>
+			<table><thead><tr><th>Action</th><th>Cost</th><th>Effect</th></tr></thead><tbody>
+				<tr><td>Innovation</td><td>18 CP</td><td>Double the quality of the next Touch</td></tr>
+				<tr><td>Touch</td><td>18 CP, 10 durability</td><td>Add 40 quality</td></tr>
+				<tr><td>Synthesis</td><td>10 durability</td><td>Add 50 progress</td></tr>
+			</tbody></table>
+			<p>Two Touch actions look attractive if we only consider immediate gain. The state moves from <code>p=0, q=0, d=30, cp=36</code> to <code>p=0, q=80, d=10, cp=0</code>. Quality is complete, but there is durability for only one Synthesis, so progress can reach at most 50 and the craft must fail.</p>
+			<p>The feasible path is <code>Innovation → Touch → Synthesis → Synthesis</code>. Innovation consumes no durability, the empowered Touch reaches 80 quality in one action, and the remaining 20 durability pays for two Synthesis actions. The terminal state is <code>p=100, q=80, d=0, cp=0</code>.</p>
+			<p>This tiny example already contains three hard parts of the real problem:</p>
+			<ol>
+				<li>The action with the best local payoff may not belong to any globally feasible path.</li>
+				<li>Quality and progress compete for the same durability and CP, so they cannot be solved as independent problems.</li>
+				<li>After finding one feasible path, the solver must still decide whether a shorter or higher-quality path exists.</li>
+			</ol>
+			<p>Brute force can try every four-step combination here. A real recipe has more than twenty candidates, dozens of steps, and many buff states. Raphael's job is to keep hopeless combinations out of deep search without discarding the optimal path.</p>
+
+			<h2>Why Brute Force Is Not an Option</h2>
+			<p>Suppose an average step offers 20 actions and a plan reaches a depth of 40. A naive upper bound on the search space is:</p>
+			{{code:4}}
+			<p>The number is useless in practice. Level, CP, durability, and prerequisites remove many actions, but the remaining state space still expands extremely quickly.</p>
+			<p>Different action orders can also reach states with the same effect context but different resources. If two states have identical buffs, condition, and combo context, while one has no less progress, quality, durability, or CP, continuing from the weaker state usually repeats work.</p>
+			<p>The heart of a crafting solver is therefore not merely searching. It is <strong>proving as early as possible that a branch no longer deserves to be searched</strong>.</p>
+			<p>Raphael does this by combining best-first search, branch-and-bound, dynamic programming, and Pareto optimization. Several specialized sub-solvers continuously provide upper and lower bounds to the main search.</p>
+
+			<h2>Raphael's Main Framework: A Shortest Path over a DAG</h2>
+			<p>Raphael treats crafting states as nodes and legal actions as edges. Its main search expands the most promising node first instead of blindly following generation order.</p>
+			<p>Let <code>A(s)</code> be the legal actions in state <code>s</code>, <code>T(s,a)</code> the state after action <code>a</code>, and <code>P*</code> and <code>Q*</code> the progress and quality targets. The best complete plan found so far is stored as the incumbent.</p>
+			<p>For every unexpanded state, the sub-solvers provide an optimistic assessment: maximum reachable progress, maximum reachable quality, and minimum remaining steps. Optimistic means they may imagine a future better than reality, never worse. If even that optimistic future cannot beat the incumbent, the real continuation cannot beat it either and the branch is safe to remove.</p>
+			<p>A deliberately simplified version looks like this:</p>
+			{{code:5}}
+			<p><code>queue.popBest()</code> is best-first: inspect the theoretically strongest state first. Once a solution exists, restricting later work with the incumbent is branch-and-bound. An upper bound is the best fantasy a branch could achieve; the incumbent is the best result actually in hand. If the fantasy cannot beat the record, there is nothing left to search.</p>
+			<p>Two conclusions must remain separate:</p>
+			<ul>
+				<li><strong>A feasible solution was found</strong>: at least one path satisfies progress and quality.</li>
+				<li><strong>The optimal solution was proved</strong>: every unexpanded path has an optimistic bound no better than the incumbent.</li>
+			</ul>
+			<p>The first solution is not automatically optimal. If the time or node budget expires before the second statement is proved, the result is bounded, not exact optimal.</p>
+			<p>The elegant part is not the loop itself. It is the set of small proof engines around it.</p>
+
+			<h2>FinishSolver: Can This State Still Finish?</h2>
+			<p>No amount of quality matters if the remaining durability and CP can no longer fill the progress bar.</p>
+			<p><code>FinishSolver</code> temporarily removes quality from the question and asks how much progress can theoretically still be produced from the current state.</p>
+			<p>As a memoized recurrence, it can be written as <code>F(s) = max(Δprogress(s,a) + F(T(s,a)))</code>, where <code>a</code> ranges only over actions allowed in a finish. When the same remaining CP, durability, and progress context appears again, the cached <code>F(s)</code> is reused.</p>
+			<p>If <code>state.progress + F(state) &lt; P*</code>, progress is insufficient even under the most favorable continuation. That is a proof of physical infeasibility. In the toy example, the second Touch leaves 10 durability, so <code>F(s)</code> is at most 50. Because <code>0 + 50 &lt; 100</code>, the greedy quality branch can be pruned immediately.</p>
+			<p>For pruning to be safe, that estimate must be optimistic. It may assume that future progress actions are unusually efficient or that resources convert more generously than they do in a real rotation. What it must never do is underestimate the true maximum.</p>
+			<ul>
+				<li>An upper bound that is too high prunes fewer states and costs performance.</li>
+				<li>An upper bound that is too low deletes a viable path and breaks correctness.</li>
+			</ul>
+			<p>Ruri's <code>ProgressFeasibilitySolver</code> follows the same rule. It deliberately overestimates durability recovery and Waste Not, and relaxes how many actions CP can buy. Only if the craft still cannot finish under that generous model may it be called physically impossible.</p>
+			<p>This was the first boundary repaired for Recipe 37825: <strong>a progress finish solver proves progress facts. The zero quality of a progress-only suffix cannot disprove the entire HQ objective.</strong></p>
+
+			<h2>QualityUbSolver: How High Could Quality Possibly Go?</h2>
+			<p>Being able to finish progress does not mean an HQ or collectable target remains reachable. The solver also needs an upper bound on quality available from the remaining resources.</p>
+			<p>Raphael's <code>QualityUbSolver</code> relaxes durability, Manipulation, specialist resources, and related effects into a shared budget that is easier to optimize, then uses dynamic programming to maintain a Pareto frontier of progress and quality.</p>
+			<p>Simply asking for the maximum quality after spending every remaining resource on Touch actions forgets that progress still needs a reserve. A useful result is a set of non-dominated pairs such as <code>(+100 progress, +80 quality)</code> and <code>(+150 progress, +50 quality)</code>. The first has more quality, the second more progress, so both remain relevant.</p>
+			<p>For each legal action, its <code>(Δprogress, Δquality)</code> is added to the next state's Pareto set, then every result beaten on both dimensions is removed. The result is not one rotation but a boundary of progress-quality exchanges available from the remaining resources.</p>
+			<p>In the toy example, a second Touch reaches 80 quality but leaves resources for only 50 progress. Saving both durability slots for Synthesis reaches 100 progress but leaves quality at 40. The separate maxima are 100 and 80, but they cannot be obtained together. The joint Pareto boundary exposes that the branch cannot reach <code>(100,80)</code>.</p>
+			<p>Ruri's current implementation is simpler and looser. <code>QualityUpperBoundSolver</code> assumes that future quality actions happen under an unrealistically favorable setup:</p>
+			<ul>
+				<li>Excellent supplies the highest condition multiplier.</li>
+				<li>Innovation and Great Strides contribute together.</li>
+				<li>Inner Quiet is evaluated at its maximum stack count.</li>
+				<li>Remaining durability and CP buy as many quality actions as possible.</li>
+			</ul>
+			<p>This is not a real rotation. It is an intentionally inflated ceiling. A branch can be pruned only when it misses the target even in this idealized world.</p>
+			{{code:6}}
+			<p>The second result does not prove feasibility. It only says that infeasibility has not been proved yet. The old solver confused those two conclusions.</p>
+
+			<h2>StepLbSolver: How Many Steps Are Still Unavoidable?</h2>
+			<p>When CP is plentiful, both progress and quality upper bounds become loose and stop pruning effectively. Raphael therefore computes a lower bound on the number of steps still required, even under ideal future actions, to satisfy both progress and quality.</p>
+			<p>The recurrence resembles shortest path: <code>L(s)=0</code> once the relaxed target is met; otherwise <code>L(s)=1+min L(T(s,a))</code>. To remain a safe lower bound, it may relax CP limits or imagine stronger actions, but it must never overestimate the minimum number of real steps.</p>
+			<p>If the current prefix has used 25 steps, at least 8 more are required, and a 30-step incumbent already exists, that branch cannot win on step count.</p>
+			<p>This comparison is valid only after higher-priority goals are equal. A short plan that misses quality cannot dominate a longer max-quality plan.</p>
+			<p>Ruri currently has a simplified <code>FinishStepLowerBound</code> based on the strongest progress potency available in the recipe. It has not yet implemented Raphael's complete dynamic-programming <code>StepLbSolver</code>. For now, this number helps order the queue rather than proving strict optimality.</p>
+
+			<h2>Pareto Pruning: Keep Only States That Are Meaningfully Different</h2>
+			<p>Consider two states, A and B, with the same condition, previous action, buff timers, and limited-resource context. Suppose A satisfies:</p>
+			{{code:7}}
+			<p>If at least one dimension is strictly better, A dominates B. Anything available after B is normally available after A, with resources no worse, so B does not need further expansion.</p>
+			<p>A real implementation cannot compare only four numbers. Different buff durations, conditions, or previous actions change both action legality and payoff. Merging those states would create subtle correctness bugs.</p>
+			<p>Ruri therefore puts Condition, PreviousAction, every relevant buff timer, Inner Quiet, Heart and Soul, Trained Perfection, and other limited resources into a <code>FrontierKey</code>. Only states with the same key compete on progress, quality, durability, and CP. A dominated candidate is discarded; a stronger candidate removes older states that it dominates.</p>
+			<p>This is deduplication with a wider reach. It removes not only identical states but also states that differ numerically while being worse in every dimension that matters.</p>
+			<p>Raphael uses bucketing and an approximate Pareto frontier to reduce dominance-check cost at a much larger scale. Ruri still uses a straightforward list per equivalent context.</p>
+
+			<h2>How the Pieces Fit Together in Ruri</h2>
+			<p>Quality objectives in Ruri now route to <code>GlobalCraftSearchSolver</code>. Its broad structure is:</p>
+			{{code:8}}
+			<p><code>CraftSimulator</code> is the source of truth for the entire system. Action legality, CP and durability costs, progress and quality gains, and buff ticking all go through the same simulator. If the search owns one fast approximation of the rules while execution owns another supposedly real one, they will eventually drift apart.</p>
+			<p>At the beginning of a search, Ruri does three things:</p>
+			<ol>
+				<li>Validate that the state and ruleset are complete.</li>
+				<li>Reject true physical dead ends with the optimistic progress bound.</li>
+				<li>Use a heuristic planner to seed a finish-capable incumbent.</li>
+			</ol>
+			<p>Nodes then enter a priority queue. The priority observes current quality and progress, optimistic ceilings for both, the finish-step lower bound, and remaining CP and durability. Sorting only by quality would recreate the original problem: spend every resource on quality early, then discover that progress cannot finish.</p>
+			<p>I ended up using a balanced score that gives an opener room to build Inner Quiet and quality buffs, then gradually hands priority to the progress bottleneck once the quality ramp matures.</p>
+			<p>This is not Raphael's original scoring function. It is an engineering choice made for Ruri's real-time replanning.</p>
+			<table><thead><tr><th>Role</th><th>Full Raphael approach</th><th>Current Ruri implementation</th></tr></thead><tbody>
+				<tr><td>Main search</td><td>Best-first + branch-and-bound until optimality is proved</td><td>PriorityQueue with time, depth, and node budgets</td></tr>
+				<tr><td>FinishSolver</td><td>Feasibility and bounds through compressed-state DP</td><td>Optimistic progress formula + bounded finish beam</td></tr>
+				<tr><td>QualityUbSolver</td><td>Progress-quality Pareto DP over relaxed resources</td><td>Intentionally loose formula-based quality ceiling</td></tr>
+				<tr><td>StepLbSolver</td><td>Safe step lower bound through DP</td><td>Simplified estimate from maximum progress potency</td></tr>
+				<tr><td>Pareto</td><td>Bucketed approximate frontier for large state sets</td><td>List dominance within equivalent contexts</td></tr>
+				<tr><td>Randomness</td><td>Optional adversarial worst-case mode</td><td>Separate expectimax route; deterministic live default</td></tr>
+			</tbody></table>
+			<p>Ruri can therefore prove that it found and replay-verified a plan satisfying the goal. It does not prove that the plan is the shortest among all legal plans. In particular, after reaching a max-quality terminal state, the live path prioritizes returning an executable first action instead of exhausting the queue to prove the shortest macro. That is the central trade-off between real-time execution and offline optimal solving.</p>
+
+			<h2>Why I Added Semantic Action Sequences</h2>
+			<p>Expanding one action at a time is clean, but under a one-second live budget the solver can spend most of its time visiting obvious intermediate states.</p>
+			<p>Alongside individual actions, Ruri therefore considers several short sequences with useful crafting semantics:</p>
+			{{code:9}}
+			<p>These are not macros that bypass the simulator. Every action in a sequence is replayed and checked one by one. If any action is illegal, the sequence never enters the queue.</p>
+			<p>It is like giving the search a few common phrases so it does not always have to build a sentence from individual letters.</p>
+			<p>The cost is explicit. Semantic sequences, priorities, and finite budgets introduce heuristic bias. They help find practical plans quickly, but they are another reason the current implementation cannot be called a strict exact solver.</p>
+
+			<h2>A Static Macro Is Not Enough: Replanning in the Live Client</h2>
+			<p>Finding a complete offline plan does not mean the game should mechanically execute it from beginning to end.</p>
+			<p>Real crafting conditions change, an action can be rejected, and the observer can temporarily lack a complete state. Ruri therefore uses a receding horizon for live execution:</p>
+			{{code:10}}
+			<p>The solver never needs to pretend it knows future conditions, and simulation error cannot accumulate over dozens of steps without correction.</p>
+			<p>Executing only the first action does not make the full plan pointless. The complete plan demonstrates that at least one continuation exists behind the chosen action. Re-observation then anchors the next decision back in reality.</p>
+			<p>If no state change is observed after sending an action, Ruri does not blindly send it again. Unknown state, timeout, session replacement, and resource inconsistency all fail closed. In an automation plugin, refusing to press an uncertain button is more important than trying to keep moving.</p>
+
+			<h2>Where Stochastic Actions Belong</h2>
+			<p>Raphael includes an adversarial mode that evaluates quality under the worst condition sequence, spending more computation to find macros robust to changing conditions. That objective is different from maximizing average return.</p>
+			{{code:11}}
+			<p>Ruri's <code>GlobalCraftSearchSolver</code> currently owns the deterministic, live-safe path. Actions with a success probability and probability-oriented analysis go through a separate <code>StochasticExpectimaxSolver</code>, where decision nodes and chance nodes alternate.</p>
+			<p>Conservative live mode does not let the global search use random-success actions. One high-value failure can destroy the progress reserve the plan was meant to protect. A future adversarial backend should coexist with expectimax and make the choice between worst-case reliability and higher average return explicit.</p>
+
+			<h2>What Actually Changed While Fixing Recipe 37825</h2>
+			<p>Returning to the original log, this optimization became more than replacing one search routine. It required redefining what several results meant.</p>
+
+			<h3>Physical State, Order Goal, and Solver Status Must Be Separate</h3>
+			<p>The simulator reports physical outcomes such as completed progress or exhausted durability. The order layer decides whether HQ or collectable quality was met. The solver returns a separate set of statuses:</p>
+			<ul>
+				<li><code>Solved</code>: a complete plan was found and passed independent simulator replay.</li>
+				<li><code>Partial</code>: a useful candidate exists, but the complete objective was not proved.</li>
+				<li><code>TimedOut</code>: the time or node budget was exhausted.</li>
+				<li><code>Infeasible</code>: hard evidence proves the goal unreachable.</li>
+				<li><code>Unsupported</code>: the rules model is incomplete, so the solver refuses to guess.</li>
+			</ul>
+			<p>The dangerous old behavior was translating “this bounded search did not find a plan” into <code>Infeasible</code>. Without a proof, the honest result is timeout or partial.</p>
+
+			<h3>Solved Must Be Simulated Again</h3>
+			<p>When a search reports <code>Solved</code>, <code>SolverRouter</code> creates a fresh simulator and replays the entire plan from the original state:</p>
+			<ol>
+				<li>Every action must be legal.</li>
+				<li>The terminal state must be a physical success, not durability failure.</li>
+				<li>Final quality must satisfy the normalized order goal.</li>
+			</ol>
+			<p>A failure downgrades the result, and the invalid plan never enters the cache. Finding an answer and checking an answer become separate responsibilities.</p>
+
+			<h3>The Cache Is Part of Algorithmic Correctness</h3>
+			<p>The solver cache key includes recipe data, the complete crafting state, objective, risk options, time and node budgets, ruleset fingerprint, and algorithm version.</p>
+			<p>Omitting <code>CanHq</code>, a buff, the previous action, or the rule version can make two merely similar requests reuse the same plan. A fast hit on a wrong cache entry only makes a bug more consistent.</p>
+
+			<h2>Current Results, and What I Will Not Exaggerate</h2>
+			<p>The Recipe 37825 regression scenario uses a set of values taken from the live log: 5865 craftsmanship, 5462 control, 664 CP, 9904 starting quality, 10040 required progress, and 21200 maximum quality.</p>
+			<p>The current global search finds a replayable max-quality completion within the dry-run budget. Simulated live execution replans after each observation and eventually satisfies both progress and quality. Regression tests also cover a missing PreviousAction observation, an early Immaculate Mend, durability reduced to five, and states that have already become physical dead ends.</p>
+			<p>Several qualifications remain:</p>
+			<ul>
+				<li>The reliable finish search is itself a bounded beam with width 16 and at most 8192 expansions, not Raphael's complete DP.</li>
+				<li>The quality bound is a loose formula-based ceiling, without a shared CP currency or complete Pareto DP.</li>
+				<li>The step lower bound is a simplified estimate.</li>
+				<li>The main live search has a one-second, depth, and node budget.</li>
+				<li>Balanced scoring and semantic action sequences make the result bounded and heuristic, without a strict optimality proof.</li>
+				<li>Adversarial search over random conditions has not been implemented.</li>
+				<li>Automated tests prove simulation contracts; they do not mean every recipe has been validated in the real Chinese client.</li>
+			</ul>
+			<p>I would rather leave those boundaries visible than hide them behind a phrase such as “AI optimal solver.” Whether an algorithm deserves trust begins with whether it describes honestly what it can prove.</p>
+
+			<h2>How I Would Optimize It Next</h2>
+			<p>If Ruri continues moving toward Raphael's architecture, the order should be deliberate.</p>
+			<p>First, turn FinishSolver into a genuinely independent dynamic-programming problem. The current beam finds finish paths quickly, but “not found” does not always mean “does not exist.” Stronger memoization and state compression can reduce that uncertainty.</p>
+			<p>Second, build a tighter quality upper bound. Convert durability, Manipulation, and limited resources into a shared budget, then maintain a <code>(progress, quality)</code> Pareto frontier. A tighter bound keeps the main search from spending time on imaginary high-quality continuations.</p>
+			<p>Third, implement a complete StepLbSolver. It becomes especially useful when resources are plentiful, where it can prove that a path cannot beat the incumbent on step count.</p>
+			<p>Fourth, replace the list-based frontier with buckets and measure dominance hit rates. Before optimizing, determine whether time is actually going into transitions, bounds, or dominance checks.</p>
+			<p>Fifth, add adversarial mode and Monte Carlo replay. The former answers whether a plan survives worst-case conditions. The latter estimates the probability of reaching HQ or a collectable tier under an explicit probability model.</p>
+			<p>Parallelism comes last. Without strong pruning, more threads simply generate useless states faster.</p>
+
+			<h2>Closing Thoughts</h2>
+			<p>Studying Raphael changed how I think about a crafting solver. It is not a machine that memorizes a rotation.</p>
+			<p>What it really manages is a series of proofs.</p>
+			<ul>
+				<li>FinishSolver proves that a path still has the resources to finish.</li>
+				<li>QualityUbSolver proves whether it still deserves to pursue the quality target.</li>
+				<li>StepLbSolver proves whether it can still beat the current answer on length.</li>
+				<li>The Pareto frontier proves which states are merely inferior duplicates.</li>
+				<li>Independent replay proves that the answer returned by the search actually obeys the rules.</li>
+			</ul>
+			<p>Ruri has implemented only part of that path, with several practical compromises for a one-second live budget. Still, the false Recipe 37825 result left one useful principle embedded in the code:</p>
+			<blockquote><p>Failing to find an answer does not mean no answer exists. Only call a goal infeasible when you can provide a proof.</p></blockquote>
+			<p>That principle matters more than any single crafting macro.</p>
+
+			<h2>References</h2>
+			<ul>
+				<li><a href="https://github.com/KonaeAkira/raphael-rs">KonaeAkira/raphael-rs</a></li>
+				<li><a href="https://github.com/KonaeAkira/raphael-rs/wiki/Algorithm-Overview">Raphael Algorithm Overview</a></li>
+				<li><a href="https://github.com/Tnze/ffxiv-best-craft">Tnze/ffxiv-best-craft</a></li>
+				<li><a href="https://github.com/PunishXIV/Artisan">PunishXIV/Artisan</a></li>
+			</ul>
+		`, Array.from({ length: 12 }, (_, index) => index)),
+	},
 };
 
 const originalArticleHtml = new WeakMap<HTMLElement, string>();

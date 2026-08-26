@@ -456,6 +456,25 @@ pre > code {
 		padding: 2.45rem 0.85rem 1rem;
 		font-size: 12px;
 	}
+
+	.prose table {
+		display: block;
+		max-width: 100%;
+		overflow-x: auto;
+		overscroll-behavior-inline: contain;
+	}
+
+	.prose th,
+	.prose td {
+		min-width: 7rem;
+		padding-right: 1rem;
+		vertical-align: top;
+	}
+
+	.prose th:nth-child(n + 2),
+	.prose td:nth-child(n + 2) {
+		min-width: 13rem;
+	}
 }
 
 blockquote {
