@@ -2,7 +2,7 @@
 
 @font-face {
 	font-family: BoutiqueBitmap;
-	src: url('/vendor/async-area/BoutiqueBitmap9x9_1.9.ttf') format('truetype');
+	src: url('/vendor/async-area/BoutiqueBitmap9x9_1.9.woff2') format('woff2');
 	font-display: swap;
 }
 
@@ -276,7 +276,7 @@ body::after {
 	content: '';
 	background-image: var(
 		--page-character-background,
-		url('/images/backgrounds/re0-emilia-flat.png')
+		url('/images/backgrounds/re0-emilia-flat.webp')
 	);
 	background-position: center;
 	background-size: contain;
@@ -3064,7 +3064,7 @@ td {
 
 	.site-nav {
 		position: relative;
-		grid-template-columns: 1fr auto;
+		grid-template-columns: minmax(0, 1fr) auto auto;
 		height: 4.2rem;
 		padding: 1rem 0;
 		gap: 0.8rem;
@@ -3072,6 +3072,8 @@ td {
 
 	.nav-toggle {
 		display: inline-flex;
+		grid-column: 3;
+		grid-row: 1;
 		justify-self: end;
 	}
 
@@ -3092,12 +3094,14 @@ td {
 		pointer-events: none;
 		transform: translateY(-6px) scale(0.98);
 		transform-origin: top right;
+		visibility: hidden;
 		transition:
 			opacity 220ms var(--ease-yohaku),
 			transform 220ms var(--ease-yohaku);
 	}
 
 	[data-nav-open] .nav-links {
+		visibility: visible;
 		opacity: 1;
 		pointer-events: auto;
 		transform: translateY(0) scale(1);
@@ -3131,7 +3135,9 @@ td {
 	}
 
 	.nav-locale {
-		display: none;
+		display: inline-flex;
+		grid-column: 2;
+		grid-row: 1;
 	}
 
 	.home-hero {
@@ -3186,7 +3192,7 @@ td {
 	.second-screen {
 		min-height: auto;
 		grid-template-columns: 1fr;
-		padding: 1rem 0 3rem;
+		padding: 3.5rem 0 3rem;
 	}
 
 	.pixel-console {
@@ -3272,6 +3278,12 @@ td {
 		width: 6rem;
 	}
 
+}
+
+@media (max-width: 380px) {
+	.site-brand__latin {
+		display: none;
+	}
 }
 
 @media (prefers-reduced-motion: reduce) {

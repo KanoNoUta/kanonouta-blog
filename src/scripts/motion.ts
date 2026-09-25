@@ -1,3 +1,5 @@
+import { onAnimationFrame } from '../lib/frame';
+
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const root = document.documentElement;
 const header = document.querySelector<HTMLElement>('.site-header');
@@ -20,8 +22,10 @@ const updateScrollState = () => {
 };
 
 updateScrollState();
-window.addEventListener('scroll', updateScrollState, { passive: true });
-window.addEventListener('resize', updateScrollState);
+const scheduleScrollState = onAnimationFrame(updateScrollState);
+window.addEventListener('scroll', scheduleScrollState, { passive: true });
+window.addEventListener('resize', scheduleScrollState);
+new ResizeObserver(scheduleScrollState).observe(document.body);
 
 const positionNavIndicator = (target?: HTMLElement | null) => {
 	if (!nav || !navIndicator) return;
@@ -38,9 +42,12 @@ const positionNavIndicator = (target?: HTMLElement | null) => {
 };
 
 positionNavIndicator();
-window.addEventListener('resize', () => positionNavIndicator());
+const scheduleNavIndicator = onAnimationFrame(() => positionNavIndicator());
+window.addEventListener('resize', scheduleNavIndicator);
+void document.fonts.ready.then(scheduleNavIndicator);
 window.addEventListener('kano:language-change', () => {
-	requestAnimationFrame(() => positionNavIndicator());
+	scheduleNavIndicator();
+	scheduleScrollState();
 });
 
 nav?.querySelectorAll<HTMLElement>('a').forEach((link) => {
@@ -49,18 +56,34 @@ nav?.querySelectorAll<HTMLElement>('a').forEach((link) => {
 });
 
 nav?.addEventListener('pointerleave', () => positionNavIndicator());
+nav?.addEventListener('focusout', scheduleNavIndicator);
+
+const closeNav = () => {
+	navToggle?.setAttribute('aria-expanded', 'false');
+	root.removeAttribute('data-nav-open');
+};
+
+window.matchMedia('(max-width: 860px)').addEventListener('change', (event) => {
+	if (!event.matches) closeNav();
+	scheduleNavIndicator();
+});
+
+document.addEventListener('keydown', (event) => {
+	if (event.key === 'Escape' && root.hasAttribute('data-nav-open')) {
+		closeNav();
+		navToggle?.focus();
+	}
+});
 
 navToggle?.addEventListener('click', () => {
 	const expanded = navToggle.getAttribute('aria-expanded') === 'true';
 	navToggle.setAttribute('aria-expanded', String(!expanded));
 	root.toggleAttribute('data-nav-open', !expanded);
+	scheduleNavIndicator();
 });
 
 nav?.querySelectorAll('a').forEach((link) => {
-	link.addEventListener('click', () => {
-		navToggle?.setAttribute('aria-expanded', 'false');
-		root.removeAttribute('data-nav-open');
-	});
+	link.addEventListener('click', closeNav);
 });
 
 if (!reduceMotion.matches) {
@@ -73,7 +96,8 @@ if (!reduceMotion.matches) {
 				observer.unobserve(entry.target);
 			}
 		},
-		{ rootMargin: '0px 0px -10% 0px', threshold: 0.12 },
+		// A long article may never reach a percentage-based intersection threshold.
+		{ rootMargin: '0px 0px -10% 0px', threshold: 0 },
 	);
 
 	revealTargets.forEach((target, index) => {
@@ -82,43 +106,34 @@ if (!reduceMotion.matches) {
 	});
 
 	const hero = document.querySelector<HTMLElement>('.home-hero');
-	let heroFrame = 0;
-
-	hero?.addEventListener(
-		'pointermove',
-		(event) => {
-			if (heroFrame) cancelAnimationFrame(heroFrame);
-
-			heroFrame = requestAnimationFrame(() => {
-				heroFrame = 0;
-				const rect = hero.getBoundingClientRect();
-				const x = ((event.clientX - rect.left) / rect.width - 0.5).toFixed(3);
-				const y = ((event.clientY - rect.top) / rect.height - 0.5).toFixed(3);
-				hero.style.setProperty('--pointer-x', x);
-				hero.style.setProperty('--pointer-y', y);
-			});
-		},
-		{ passive: true },
-	);
+	const moveHero = onAnimationFrame((event: PointerEvent) => {
+		if (!hero || reduceMotion.matches || event.pointerType === 'touch') return;
+		const rect = hero.getBoundingClientRect();
+		hero.style.setProperty('--pointer-x', ((event.clientX - rect.left) / rect.width - 0.5).toFixed(3));
+		hero.style.setProperty('--pointer-y', ((event.clientY - rect.top) / rect.height - 0.5).toFixed(3));
+	});
+	hero?.addEventListener('pointermove', moveHero, { passive: true });
+	hero?.addEventListener('pointerleave', () => {
+		moveHero.cancel();
+		hero.style.removeProperty('--pointer-x');
+		hero.style.removeProperty('--pointer-y');
+	});
 
 	const interactiveSurfaces = document.querySelectorAll<HTMLElement>(
 		'.quiet-panel, .post-card, .timeline-item, .paper-sheet, .icon-link',
 	);
 
 	interactiveSurfaces.forEach((surface) => {
-		surface.addEventListener(
-			'pointermove',
-			(event) => {
-				const rect = surface.getBoundingClientRect();
-				const x = ((event.clientX - rect.left) / rect.width).toFixed(3);
-				const y = ((event.clientY - rect.top) / rect.height).toFixed(3);
-				surface.style.setProperty('--surface-x', x);
-				surface.style.setProperty('--surface-y', y);
-			},
-			{ passive: true },
-		);
+		const moveSurface = onAnimationFrame((event: PointerEvent) => {
+			if (reduceMotion.matches || event.pointerType === 'touch') return;
+			const rect = surface.getBoundingClientRect();
+			surface.style.setProperty('--surface-x', ((event.clientX - rect.left) / rect.width).toFixed(3));
+			surface.style.setProperty('--surface-y', ((event.clientY - rect.top) / rect.height).toFixed(3));
+		});
+		surface.addEventListener('pointermove', moveSurface, { passive: true });
 
 		surface.addEventListener('pointerleave', () => {
+			moveSurface.cancel();
 			surface.style.removeProperty('--surface-x');
 			surface.style.removeProperty('--surface-y');
 		});

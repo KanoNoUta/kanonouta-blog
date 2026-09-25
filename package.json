@@ -8,6 +8,9 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "check": "astro check",
+    "test": "playwright test",
+    "verify": "pnpm check && pnpm build && pnpm test",
     "preview": "astro preview",
     "astro": "astro"
   },
@@ -17,5 +20,10 @@
     "@astrojs/sitemap": "^3.7.3",
     "astro": "^7.0.6",
     "sharp": "^0.35.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@playwright/test": "^1.63.0",
+    "typescript": "^6.0.3"
   }
 }

@@ -27,3 +27,7 @@ pnpm-debug.log*
 .catpaw/
 .tmp_async/
 .tmp_typography/
+
+# browser regression output
+test-results/
+playwright-report/

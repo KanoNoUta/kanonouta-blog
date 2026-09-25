@@ -143,9 +143,11 @@ const exploredPercent = Math.round((places.length / explorationTotal) * 1000) / 
 		</div>
 	</section>
 	<script>
+		import { onAnimationFrame } from '../../lib/frame';
+
 		type ViewBox = { x: number; y: number; width: number; height: number };
 		type Point = { x: number; y: number };
-		type DragState = { pointerId: number; clientX: number; clientY: number; viewBox: ViewBox };
+		type DragState = { pointerId: number; start: DOMPoint; inverse: DOMMatrix; viewBox: ViewBox };
 
 		const label = document.querySelector<HTMLElement>('[data-map-hover-label]');
 		const map = document.querySelector<SVGSVGElement>('.footprint-map');
@@ -171,7 +173,9 @@ const exploredPercent = Math.round((places.length / explorationTotal) * 1000) / 
 		let viewBox: ViewBox = { ...baseViewBox };
 		let dragStart: DragState | null = null;
 		let zoomAnim: number | null = null;
-		const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		let markersVisible: boolean | undefined;
+		let didDrag = false;
+		const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 		const moveLabel = (clientX: number, clientY: number): void => {
 			if (!label || !paper) return;
@@ -182,13 +186,15 @@ const exploredPercent = Math.round((places.length / explorationTotal) * 1000) / 
 
 		const showLabel = (name: string | null, clientX: number, clientY: number): void => {
 			if (!label || !name) return;
-			label.textContent = name;
-			label.setAttribute('data-active', '');
+			if (label.textContent !== name) {
+				label.textContent = name;
+				label.setAttribute('data-active', '');
+			}
 			moveLabel(clientX, clientY);
 		};
 
 		const hideLabel = (): void => {
-			if (!label) return;
+			if (!label?.hasAttribute('data-active')) return;
 			label.removeAttribute('data-active');
 			label.textContent = '';
 		};
@@ -202,7 +208,11 @@ const exploredPercent = Math.round((places.length / explorationTotal) * 1000) / 
 			}
 		};
 
-		map?.addEventListener('pointerleave', () => hideLabel());
+		map?.addEventListener('pointerleave', () => {
+			if (!dragStart) moveMap.cancel();
+			hideLabel();
+		});
+		window.addEventListener('kano:language-change', hideLabel);
 
 		mapTargets.forEach((target) => {
 			target.addEventListener('focus', () => {
@@ -235,7 +245,14 @@ const exploredPercent = Math.round((places.length / explorationTotal) * 1000) / 
 			map.setAttribute('viewBox', `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`);
 			paper?.style.setProperty('--map-zoom', String(zoom));
 			paper?.style.setProperty('--marker-scale', String(Math.min(1, 1 / zoom)));
-			paper?.toggleAttribute('data-show-markers', zoom >= markerZoom);
+			const showMarkers = zoom >= markerZoom;
+			if (markersVisible !== showMarkers) {
+				markersVisible = showMarkers;
+				paper?.toggleAttribute('data-show-markers', showMarkers);
+				markers.forEach((marker) => marker.setAttribute('tabindex', showMarkers ? '0' : '-1'));
+			}
+			if (zoomIn) zoomIn.disabled = zoom >= maxZoom - 0.001;
+			if (zoomOut) zoomOut.disabled = zoom <= minZoom + 0.001;
 			paper?.toggleAttribute('data-map-dragging', Boolean(dragStart));
 		};
 
@@ -243,11 +260,13 @@ const exploredPercent = Math.round((places.length / explorationTotal) * 1000) / 
 			t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
 		const animateViewBox = (target: ViewBox, duration = 380): void => {
-			if (reduceMotion) {
+			target = clampViewBox(target);
+			if (zoomAnim) cancelAnimationFrame(zoomAnim);
+			zoomAnim = null;
+			if (reduceMotion.matches) {
 				applyViewBox(target);
 				return;
 			}
-			if (zoomAnim) cancelAnimationFrame(zoomAnim);
 			const start: ViewBox = { ...viewBox };
 			const startTime = performance.now();
 			const step = (now: number): void => {
@@ -273,12 +292,10 @@ const exploredPercent = Math.round((places.length / explorationTotal) * 1000) / 
 		};
 
 		const pointFromEvent = (event: { clientX: number; clientY: number }): Point => {
-			if (!map) return { x: baseViewBox.x + baseViewBox.width / 2, y: baseViewBox.y + baseViewBox.height / 2 };
-			const rect = map.getBoundingClientRect();
-			return {
-				x: viewBox.x + ((event.clientX - rect.left) / rect.width) * viewBox.width,
-				y: viewBox.y + ((event.clientY - rect.top) / rect.height) * viewBox.height,
-			};
+			const matrix = map?.getScreenCTM();
+			if (!matrix) return { x: baseViewBox.x + baseViewBox.width / 2, y: baseViewBox.y + baseViewBox.height / 2 };
+			// The SVG can be letterboxed; its bounding rectangle is not its coordinate system.
+			return new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
 		};
 
 		const zoomAt = (scale: number, center: Point): void => {
@@ -325,45 +342,59 @@ const exploredPercent = Math.round((places.length / explorationTotal) * 1000) / 
 		}, { passive: false });
 
 		map?.addEventListener('pointerdown', (event: PointerEvent) => {
-			if (!(event.target instanceof Element)) return;
+			if (!event.isPrimary || event.button !== 0 || !(event.target instanceof Element)) return;
+			const matrix = map.getScreenCTM();
+			if (!matrix) return;
+			moveMap.cancel();
 			cancelZoomAnim();
+			didDrag = false;
+			const inverse = matrix.inverse();
 			dragStart = {
 				pointerId: event.pointerId,
-				clientX: event.clientX,
-				clientY: event.clientY,
+				start: new DOMPoint(event.clientX, event.clientY).matrixTransform(inverse),
+				inverse,
 				viewBox: { ...viewBox },
 			};
 			map.setPointerCapture(event.pointerId);
 			applyViewBox(viewBox);
 		});
 
-		map?.addEventListener('pointermove', (event: PointerEvent) => {
-			updateFromEvent(event);
-			if (!dragStart || dragStart.pointerId !== event.pointerId || !map) return;
-			const rect = map.getBoundingClientRect();
-			const dx = ((event.clientX - dragStart.clientX) / rect.width) * dragStart.viewBox.width;
-			const dy = ((event.clientY - dragStart.clientY) / rect.height) * dragStart.viewBox.height;
+		const moveMap = onAnimationFrame((event: PointerEvent) => {
+			if (!dragStart) {
+				updateFromEvent(event);
+				return;
+			}
+			if (dragStart.pointerId !== event.pointerId) return;
+			hideLabel();
+			const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(dragStart.inverse);
+			const dx = point.x - dragStart.start.x;
+			const dy = point.y - dragStart.start.y;
+			if (Math.hypot(dx, dy) > 2) didDrag = true;
 			applyViewBox({
 				...dragStart.viewBox,
 				x: dragStart.viewBox.x - dx,
 				y: dragStart.viewBox.y - dy,
 			});
 		});
+		map?.addEventListener('pointermove', moveMap, { passive: true });
 
 		const endDrag = (event: PointerEvent): void => {
 			if (!dragStart || dragStart.pointerId !== event.pointerId) return;
+			moveMap.flush();
 			dragStart = null;
 			paper?.removeAttribute('data-map-dragging');
+			if (map?.hasPointerCapture(event.pointerId)) map.releasePointerCapture(event.pointerId);
 		};
 
 		map?.addEventListener('pointerup', endDrag);
 		map?.addEventListener('pointercancel', endDrag);
+		map?.addEventListener('lostpointercapture', endDrag);
 		map?.addEventListener('dblclick', (event: MouseEvent) => zoomAtAnimated(1.8, pointFromEvent(event)));
 
 		markers.forEach((marker) => {
 			marker.addEventListener('click', (event: MouseEvent) => {
 				event.stopPropagation();
-				focusMarker(marker);
+				if (!didDrag) focusMarker(marker);
 			});
 			marker.addEventListener('keydown', (event: KeyboardEvent) => {
 				if (event.key === 'Enter' || event.key === ' ') {

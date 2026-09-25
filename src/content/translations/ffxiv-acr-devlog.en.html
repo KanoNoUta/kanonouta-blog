@@ -1,0 +1,212 @@
+
+			<p>This post records the process of developing the KANO Dark Knight ACR over the last few days.</p>
+			<p>It is not just a showcase. It is a teaching-oriented development note about what an ACR needs to consider: basic rotation, burst logic, QT switches, a Hotkey panel, settings persistence, resource files, and finally packaging the project into a subscription repository format.</p>
+			<p>Some behavior was aligned by observing mature implementations and public material. I will not go into concrete reverse-engineering details here. The valuable part is the second half: turning observed ideas into a project that is maintainable, debuggable, and publishable.</p>
+
+			<h2>Development Goals</h2>
+			<p>KANO started with a direct goal: build a level 100 Dark Knight rotation.</p>
+			<p>Once the work began, it became clear that a long-term usable ACR cannot merely press skills in order. It has to solve at least these problems:</p>
+			<ul>
+				<li>Separate high-end mode from daily mode.</li>
+				<li>Align the level 100 burst with the standard rotation as much as possible.</li>
+				<li>Trigger the 60-second and 120-second burst windows reliably.</li>
+				<li>Prevent GCD and oGCD weaving from blocking each other.</li>
+				<li>Let QT switches control rotation details.</li>
+				<li>Let Hotkeys prioritize mitigation, provoke, Blackest Night, Oblation, and similar actions.</li>
+				<li>Make the UI understandable, draggable, and able to save its position.</li>
+				<li>Persist settings instead of resetting them whenever the plugin restarts.</li>
+				<li>Ship resource files together with the DLL, without relying on local absolute paths.</li>
+				<li>Package everything into a format that a subscription repository can read.</li>
+			</ul>
+			<p>So the project became a complete ACR development example that covers combat decisions, UI, settings, resources, packaging, and release.</p>
+
+			<h2>Overall Architecture</h2>
+			<p>I ended up with a clear layered structure.</p>
+			<div data-code-ref="0"></div>
+			<p>Each layer has one job.</p>
+			<p><code>KanoRotation</code> is the ACR entry point. It registers GCD and oGCD resolvers and handles opener state, events, UI activation, and combat state.</p>
+			<p><code>DrkGcdResolver</code> only decides the next GCD.</p>
+			<p><code>DrkOffGcdResolver</code> only decides the next ability.</p>
+			<p><code>DrkAeLogic</code> contains the real job logic: whether to enter burst, spend MP, summon Fray, use Shadowbringer, use AOE in daily mode, or trigger automatic mitigation.</p>
+			<p><code>ApiHelper</code> is my wrapper around the PR API. If the framework API changes later, I can change the helper instead of scattering framework calls everywhere.</p>
+			<p>The key idea is this: do not put every decision into a Resolver. A Resolver should behave like a dispatcher. The actual rules should live in the logic layer.</p>
+
+			<h2>Entry Class: Wiring Only</h2>
+			<p>An ACR entry class usually implements <code>IRotation</code> and uses <code>RotationMetadata</code> to describe job, author, version, and scope.</p>
+			<p>A simplified version looks like this:</p>
+			<div data-code-ref="1"></div>
+			<p>The important part is keeping <code>NextGcd</code> and <code>NextOffGcd</code> separate.</p>
+			<p><code>NextGcd</code> returns the next GCD.</p>
+			<p><code>NextOffGcd</code> returns the next ability.</p>
+			<p>A large part of Dark Knight rotation quality depends on stable oGCD weaving. If both paths are mixed together, debugging becomes painful.</p>
+
+			<h2>Why GCD and oGCD Must Be Split</h2>
+			<p>When the rotation first broke, a common symptom was that GCD combos kept running while abilities never weaved, or the rotation claimed to be in burst but did not actually execute burst abilities.</p>
+			<p>This is usually not a wrong skill ID. It is scheduling logic.</p>
+			<p>FFXIV combat timing roughly works like this:</p>
+			<ul>
+				<li>Abilities can be woven while the GCD is rolling.</li>
+				<li>Normally one GCD interval can fit up to two weaves.</li>
+				<li>If ability checks are too conservative, nothing gets woven.</li>
+				<li>If they are too aggressive, they clip the GCD.</li>
+			</ul>
+			<p>So oGCD logic should not be “use it when cooldown is ready.” It should be: the cooldown is ready, and the current window is suitable for weaving.</p>
+			<div data-code-ref="2"></div>
+			<p>The real project has more conditions, including queue state, movement, target, resources, and switch state. The principle stays the same: first decide whether a weave is possible, then decide what to weave.</p>
+
+			<h2>The Resource View of Dark Knight</h2>
+			<p>Dark Knight is not just about pressing the skill that lights up.</p>
+			<p>It manages several resources and windows:</p>
+			<ul>
+				<li>MP</li>
+				<li>Blood gauge</li>
+				<li>Darkside duration</li>
+				<li>Blood Weapon / Delirium</li>
+				<li>Fray window</li>
+				<li>60-second burst</li>
+				<li>120-second burst</li>
+				<li>Shadowbringer charges</li>
+				<li>Salted Earth and Salt and Darkness</li>
+			</ul>
+			<p>The rotation must first answer one question: what phase am I in right now?</p>
+			<div data-code-ref="3"></div>
+			<p><code>Living Shadow</code> should not be blocked by normal resource-spending logic. It needs a clear priority inside burst logic.</p>
+			<div data-code-ref="4"></div>
+			<p>The MP threshold cannot be hard-coded. High-end mode cares about burst, Blackest Night, and resource pooling. Daily mode cares more about comfort, uptime, and handling packs.</p>
+
+			<h2>Burst Logic: Define the Window, Then Order Priority</h2>
+			<p>Dark Knight burst needs to fit these actions reliably:</p>
+			<ul>
+				<li>Blood Weapon / Delirium</li>
+				<li>Fray</li>
+				<li>Shadowbringer</li>
+				<li>Salted Earth</li>
+				<li>Salt and Darkness</li>
+				<li>Carve and Spit / Abyssal Drain</li>
+				<li>MP spending</li>
+				<li>Bloodspiller / Quietus</li>
+				<li>Fray follow-up</li>
+			</ul>
+			<p>I hit a classic issue: the opener 120-second burst showed as active, but abilities were not being used.</p>
+			<ol>
+				<li>Identify the opener window separately.</li>
+				<li>Write shared burst conditions separately.</li>
+				<li>Order Fray, Delirium, Shadowbringer, Salted Earth, and similar actions by priority.</li>
+				<li>Make MP spending aware of when to dump everything and when to keep MP for Blackest Night.</li>
+				<li>Let QT override default behavior.</li>
+			</ol>
+			<div data-code-ref="5"></div>
+			<p>Priority matters. In a 120-second window, Shadowbringer and MP spending may both be available, but they are not the same kind of resource. Shadowbringer is a key burst action; MP spending is a dump. The order should be tuned through logs, not guesswork.</p>
+
+			<h2>QT: Buttons Must Actually Affect the Rotation</h2>
+			<p>I kept a practical set of QT switches:</p>
+			<ul>
+				<li>Blood Weapon / Delirium</li>
+				<li>Fray</li>
+				<li>Shadowbringer</li>
+				<li>Salted Earth</li>
+				<li>Carve / Abyssal</li>
+				<li>MP spending</li>
+				<li>Follow-up, DoT, AOE, resource holding, potion, forced AOE, pause</li>
+				<li>Daily-mode automatic mitigation, automatic provoke, and pull mode</li>
+			</ul>
+			<p>The point of QT is not to display a button. It is to change the rotation for real.</p>
+			<div data-code-ref="6"></div>
+			<p>One QT should control one category of behavior. If a button affects too many things, later debugging becomes guesswork.</p>
+
+			<h2>Do Not Force High-End and Daily Modes Together</h2>
+			<p>High-end and daily mode optimize for different things.</p>
+			<p>High-end mode wants burst alignment, stable resource pooling, isolation from daily pull logic, timeline mitigation, and a stable opener.</p>
+			<p>Daily mode wants automatic AOE, pulls, mitigation, low-level compatibility, and comfortable behavior without idle gaps.</p>
+			<div data-code-ref="7"></div>
+			<div data-code-ref="8"></div>
+			<p>Do not try to cover both with one logic path. Their goals differ, and forcing them together makes them fight each other.</p>
+
+			<h2>Automatic Mitigation: Simple Looking, Debug Heavy</h2>
+			<p>Daily automatic mitigation has to check mode, QT state, combat state, nearby enemies, player HP, boss casts, current aggro, mitigation spacing, and whether enemies are about to die.</p>
+			<div data-code-ref="9"></div>
+			<p>Automatic mitigation needs Debug output. Without it, you cannot tell why it did not trigger.</p>
+			<div data-code-ref="10"></div>
+			<p>This is much more useful than staring at the game and asking why a mitigation did not happen.</p>
+
+			<h2>Hotkey Panel: Do Not Hard-Code Skill Logic in the UI</h2>
+			<p>Hotkey support is an important part of KANO. I made it a floating window rather than a plain button list: click to cast, dim on cooldown, show cooldown and charges, support second-party Blackest Night / Oblation, Living Dead, LB, Provoke, Shirk, knockback prevention, stance toggle, bundled icons, drag ordering, and position persistence.</p>
+			<div data-code-ref="11"></div>
+			<p>On click, the UI should not contain skill logic directly. It should delegate to <code>Logic.OnClick()</code>.</p>
+			<div data-code-ref="12"></div>
+			<p>That keeps “self target,” “party slot 2,” “stance toggle,” and “LB” as separate logic classes instead of a tangled UI file.</p>
+
+			<h2>Custom QT UI: Separate Drawing from State</h2>
+			<p>I started with PR’s built-in QT, but it did not give enough visual control. Later I built KANO’s own QT floating window.</p>
+			<p>The benefits are full style control, custom button rows, the ability to hide the built-in QT, and a unified look with Hotkey and control panels.</p>
+			<div data-code-ref="13"></div>
+			<p>The pattern is: draw appearance with <code>drawList</code>, use <code>InvisibleButton</code> for the clickable area, read state from QT, and write state back after clicks. UI should display and modify state, not decide combat logic.</p>
+
+			<h2>Settings Persistence: Do Not Write to Temporary Directories</h2>
+			<p>Settings persistence is easy to forget, but it affects the experience a lot. KANO needs to save mode, QT defaults, Hotkey order, window positions, opener countdown, MP thresholds, and mitigation thresholds.</p>
+			<div data-code-ref="14"></div>
+			<p>The trap I hit was saving into PR’s temporary cache directory.</p>
+			<div data-code-ref="15"></div>
+			<p>When the process ID changes after restart, the settings look lost. The stable approach is to save into the plugin config directory.</p>
+			<div data-code-ref="16"></div>
+			<p>That makes the settings persist on each user’s machine without hard-coding my username or depending on a process-specific folder.</p>
+
+			<h2>Resource Publishing: Do Not Depend on Local Absolute Paths</h2>
+			<p>Hotkey icons can be tested from a local absolute path, but release builds must include them in the project.</p>
+			<div data-code-ref="17"></div>
+			<div data-code-ref="18"></div>
+			<div data-code-ref="19"></div>
+			<p>With this layout, icons still render correctly after someone else downloads the plugin.</p>
+
+			<h2>Timeline Integration: Node Semantics Matter</h2>
+			<p>I also experimented with timeline integration. One category triggers skills, such as mitigation timelines. Another category controls QT, such as enabling “keep MP for Blackest Night during burst” for a phase.</p>
+			<div data-code-ref="20"></div>
+			<p>The important detail is that timeline action nodes must mean something the runtime can execute. A label is not enough. The node has to bind to an action that ACR / PR recognizes.</p>
+			<p>A timeline is not just JSON conversion. Node semantics must match executable runtime behavior.</p>
+
+			<h2>Debugging Methods</h2>
+			<p>Debugging is the heart of ACR development. I used these methods:</p>
+			<ol>
+				<li>Watch the next GCD / oGCD in game.</li>
+				<li>Print current state in a development panel.</li>
+				<li>Test on a dummy.</li>
+				<li>Compare skill counts through ACT / FFLogs.</li>
+				<li>Compare 60-second and 120-second windows with mature implementations.</li>
+				<li>Build and copy directly into the PR ACR directory for testing.</li>
+			</ol>
+			<div data-code-ref="21"></div>
+			<p>This is much more useful than “the skill did not fire.” Any condition that can return <code>false</code> should be able to explain why it returned <code>false</code>.</p>
+
+			<h2>Packaging and GitHub Release</h2>
+			<p>A PR ACR subscription generally needs <code>KANO.zip</code>, <code>repo.json</code>, and a GitHub Release.</p>
+			<div data-code-ref="22"></div>
+			<ol>
+				<li><code>dotnet build -c Release</code></li>
+				<li>Put <code>KANO.dll</code>, <code>KANO.deps.json</code>, and <code>Resources</code> into a temporary package folder.</li>
+				<li>Compress it into <code>KANO.zip</code>.</li>
+				<li>Calculate SHA256.</li>
+				<li>Update <code>repo.json</code>.</li>
+				<li>Upload to GitHub Release.</li>
+			</ol>
+			<div data-code-ref="23"></div>
+			<div data-code-ref="24"></div>
+			<p><code>repo.json</code> should preferably be UTF-8 without BOM to avoid parser surprises.</p>
+
+			<h2>Key Lessons</h2>
+			<ol>
+				<li>Write a working rotation before making the UI pretty.</li>
+				<li>Every complex decision should explain itself.</li>
+				<li>More QT switches are not always better. Each one needs a clear purpose.</li>
+				<li>Separate high-end and daily mode. One wants strictness; the other wants comfort.</li>
+				<li>Do not depend on local paths. Icons, settings, and release files must work on other machines.</li>
+				<li>When learning from mature implementations, learn behavior rather than copying code.</li>
+			</ol>
+
+			<h2>What Could Come Next</h2>
+			<p>KANO could add a combat analysis panel, automatic mitigation Debug, 120 / 60 burst status lights, timeline QT control nodes, config import and export, better low-level daily support, FFLogs comparison helpers, and a one-click release script.</p>
+			<p>If I continue, I would add the combat analysis panel first. It can directly show whether Edge uses are missing, whether Shadowbringer was delayed, and whether MP was dumped inside the 120-second window. That saves a lot of time compared with reading combat logs by eye.</p>
+
+			<h2>Conclusion</h2>
+			<p>The biggest lesson from building KANO is that writing an ACR is not simply arranging skills in order.</p>
+			<p>It is a small combat decision system. It needs job knowledge, framework API knowledge, UI, settings, resources, release packaging, and constant feedback from real combat logs.</p>
+			<p>Once the base structure is solid, every later optimization becomes easier. KANO has moved from “able to press skills” to “maintainable, debuggable, and publishable,” and that is the most valuable result of these few days of work.</p>

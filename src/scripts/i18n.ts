@@ -587,7 +587,18 @@ const translateMapText = (languagePack: LanguagePack): void => {
 	});
 };
 
-const applyLanguage = (language: LanguageKey, shouldStore = true): void => {
+let languageRequest = 0;
+
+const applyLanguage = async (language: LanguageKey, shouldStore = true): Promise<void> => {
+	const request = ++languageRequest;
+	try {
+		const applied = await applyArticleTranslation(language);
+		if (!applied || request !== languageRequest) return;
+	} catch (error) {
+		// Leave the current language readable if a translation cannot be downloaded.
+		console.warn('Unable to load article translation.', error);
+		return;
+	}
 	const languagePack = languages[language];
 
 	document.documentElement.lang = languagePack.htmlLang;
@@ -625,25 +636,32 @@ const applyLanguage = (language: LanguageKey, shouldStore = true): void => {
 	setDocumentMeta(languagePack);
 	formatDates(languagePack);
 	translateMapText(languagePack);
-	applyArticleTranslation(language);
-
 	if (shouldStore) {
-		window.localStorage.setItem(languageStorageKey, language);
+		try {
+			window.localStorage.setItem(languageStorageKey, language);
+		} catch {
+			// Language switching still works when browser storage is unavailable.
+		}
 	}
 
 	window.dispatchEvent(new CustomEvent('kano:language-change', { detail: { language } }));
 };
 
-const storedLanguage = window.localStorage.getItem(languageStorageKey);
+let storedLanguage: string | null = null;
+try {
+	storedLanguage = window.localStorage.getItem(languageStorageKey);
+} catch {
+	// Use the server-rendered language when storage access is blocked.
+}
 const defaultLanguage = isLanguageKey(storedLanguage) ? storedLanguage : 'zh';
 
-applyLanguage(defaultLanguage, false);
+void applyLanguage(defaultLanguage, false);
 
 document.querySelectorAll<HTMLButtonElement>('[data-lang-button]').forEach((button) => {
 	button.addEventListener('click', () => {
 		const nextLanguage = button.dataset.langButton;
-		if (isLanguageKey(nextLanguage ?? null)) {
-			applyLanguage(nextLanguage);
+		if (nextLanguage && isLanguageKey(nextLanguage)) {
+			void applyLanguage(nextLanguage);
 		}
 	});
 });
