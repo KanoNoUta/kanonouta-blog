@@ -1,0 +1,672 @@
+<!DOCTYPE html><html lang="zh-CN"><head><script>
+			const characterBackgrounds = [
+				{ id: 'emilia', url: '/images/backgrounds/re0-emilia-hd.webp', small: '/images/backgrounds/re0-emilia-hd-small.webp' },
+				{ id: 'beatrice', url: '/images/backgrounds/re0-beatrice-hd.webp', small: '/images/backgrounds/re0-beatrice-hd-small.webp' },
+				{ id: 'ram', url: '/images/backgrounds/re0-ram-hd.webp', small: '/images/backgrounds/re0-ram-hd-small.webp' },
+				{ id: 'rem', url: '/images/backgrounds/re0-rem-hd.webp', small: '/images/backgrounds/re0-rem-hd-small.webp' },
+			];
+			const selectedBackground =
+				characterBackgrounds[Math.floor(Math.random() * characterBackgrounds.length)];
+
+			document.documentElement.style.setProperty(
+				'--page-character-background',
+				`url("${selectedBackground.url}")`,
+			);
+			document.documentElement.style.setProperty(
+				'--page-character-background-small',
+				`image-set(url("${selectedBackground.small}") 1x, url("${selectedBackground.url}") 2x)`,
+			);
+			document.documentElement.dataset.characterBackground = selectedBackground.id;
+		</script><!-- Global Metadata --><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#fdfcf8"><!-- Apply the saved theme before the body paints; no deferred bundle is needed. --><script>
+	(() => {
+		const root = document.documentElement;
+		const storageKey = 'kano-theme';
+		const system = window.matchMedia('(prefers-color-scheme: dark)');
+		const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+		let preference = null;
+		let activeTransition = null;
+		let fadeTimer;
+		const valid = value => value === 'light' || value === 'dark';
+		const readPreference = () => {
+			try {
+				const saved = window.localStorage.getItem(storageKey);
+				return valid(saved) ? saved : null;
+			} catch {
+				return preference;
+			}
+		};
+		const labels = {
+			zh: { light: '切换到夜间模式', dark: '切换到日间模式' },
+			ja: { light: 'ダークモードに切り替え', dark: 'ライトモードに切り替え' },
+			en: { light: 'Switch to dark mode', dark: 'Switch to light mode' },
+		};
+		const updateControl = () => {
+			const button = document.querySelector('[data-theme-toggle]');
+			const language = root.dataset.language || root.lang.split('-')[0];
+			const label = (labels[language] || labels.zh)[root.dataset.theme];
+			button?.setAttribute('aria-label', label);
+			button?.setAttribute('title', label);
+		};
+		const applyTheme = () => {
+			const theme = preference || (system.matches ? 'dark' : 'light');
+			root.dataset.theme = theme;
+			document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#1c1c1e' : '#fdfcf8');
+			updateControl();
+			window.dispatchEvent(new CustomEvent('kano:theme-change', { detail: { theme } }));
+		};
+		const stopTransition = () => {
+			activeTransition?.skipTransition();
+			activeTransition = null;
+			window.clearTimeout(fadeTimer);
+			delete root.dataset.themeTransition;
+		};
+		const animateTheme = button => {
+			stopTransition();
+			if (reducedMotion.matches || document.hidden) {
+				applyTheme();
+				return;
+			}
+			if (typeof document.startViewTransition !== 'function') {
+				root.dataset.themeTransition = 'fade';
+				// Resolve the old colors before applying the new palette.
+				getComputedStyle(root).backgroundColor;
+				applyTheme();
+				fadeTimer = window.setTimeout(() => delete root.dataset.themeTransition, 240);
+				return;
+			}
+			const bounds = button.getBoundingClientRect();
+			const x = bounds.left + bounds.width / 2;
+			const y = bounds.top + bounds.height / 2;
+			const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+			root.style.setProperty('--theme-origin-x', `${x}px`);
+			root.style.setProperty('--theme-origin-y', `${y}px`);
+			root.style.setProperty('--theme-reveal-radius', `${Math.ceil(radius)}px`);
+			root.dataset.themeTransition = 'reveal';
+			try {
+				const transition = document.startViewTransition(applyTheme);
+				activeTransition = transition;
+				// Skipped snapshots (rapid clicks or background tabs) still apply the latest choice.
+				transition.ready.catch(() => {});
+				transition.finished.catch(() => {}).finally(() => {
+					if (activeTransition !== transition) return;
+					activeTransition = null;
+					delete root.dataset.themeTransition;
+				});
+			} catch {
+				stopTransition();
+				applyTheme();
+			}
+		};
+		preference = readPreference();
+		applyTheme();
+		const connect = () => {
+			updateControl();
+			document.querySelector('[data-theme-toggle]')?.addEventListener('click', event => {
+				preference = (preference || root.dataset.theme) === 'dark' ? 'light' : 'dark';
+				try { window.localStorage.setItem(storageKey, preference); } catch { /* Keep the current page usable without storage. */ }
+				animateTheme(event.currentTarget);
+			});
+		};
+		if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', connect, { once: true });
+		else connect();
+		system.addEventListener('change', () => { if (!preference) applyTheme(); });
+		window.addEventListener('storage', event => {
+			if (event.key !== storageKey && event.key !== null) return;
+			stopTransition();
+			preference = valid(event.newValue) ? event.newValue : null;
+			applyTheme();
+		});
+		window.addEventListener('pageshow', () => { preference = readPreference(); applyTheme(); });
+		window.addEventListener('pagehide', stopTransition);
+		reducedMotion.addEventListener('change', () => {
+			if (reducedMotion.matches) { stopTransition(); applyTheme(); }
+		});
+		window.addEventListener('kano:language-change', updateControl);
+	})();
+</script><link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="sitemap" href="/sitemap-index.xml"><link rel="alternate" type="application/rss+xml" title="Kano no Uta" href="https://kanonouta.com/rss.xml"><meta name="generator" content="Astro v7.0.6"><!-- Google Fonts: Typography-inspired font stack --><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;500;600;700&family=Source+Code+Pro:wght@400;500;600&family=Source+Sans+Pro:wght@100;300;400;600;700&display=swap" rel="stylesheet"><!-- Canonical URL --><link rel="canonical" href="https://kanonouta.com/blog/ffxiv-acr-devlog/"><!-- Primary Meta Tags --><title>从零到可发布：KANO 暗黑骑士 ACR 开发笔记 - Kano no Uta</title><meta name="description" content="一篇偏教学的开发记录：如何把暗黑骑士 ACR 从基础循环、爆发、QT、Hotkey、配置保存做到打包发布。"><!-- Open Graph / Facebook --><meta property="og:type" content="website"><meta property="og:url" content="https://kanonouta.com/blog/ffxiv-acr-devlog/"><meta property="og:title" content="从零到可发布：KANO 暗黑骑士 ACR 开发笔记 - Kano no Uta"><meta property="og:description" content="一篇偏教学的开发记录：如何把暗黑骑士 ACR 从基础循环、爆发、QT、Hotkey、配置保存做到打包发布。"><meta property="og:image" content="https://kanonouta.com/_astro/blog-placeholder-1.Bx0Zcyzv.jpg"><!-- Twitter --><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="/_astro/BaseLayout.DUhaF0qn.css"></head><body data-i18n-page="post.ffxiv-acr-devlog"><div class="scroll-progress" aria-hidden="true"></div><div class="paper-light" aria-hidden="true"></div><div class="page-shell"><header class="site-header"><nav class="site-nav" aria-label="主导航" data-i18n-aria-label="navLabel"><a class="site-brand" href="/" aria-label="Kano no Uta" data-i18n-aria-label="brandLabel"><span class="site-brand__cjk" data-i18n="brandCjk">鹿の歌</span><span class="site-brand__latin">Kano no Uta</span></a><button class="nav-toggle" type="button" aria-label="打开导航" aria-expanded="false" aria-controls="nav-links" data-i18n-aria-label="openNav"><span></span><span></span></button><div class="nav-links" id="nav-links"><span class="nav-indicator" aria-hidden="true"></span><a href="/" data-i18n="home">首页</a><a href="/blog" class="active" data-i18n="posts">文章</a><a href="/links" data-i18n="links">友链</a><div class="nav-menu"><a href="/lab" data-i18n="lab">Lab</a><div class="nav-submenu" aria-label="Lab 子菜单" data-i18n-aria-label="labMenu"><a href="/lab/map/" data-i18n="map">地图</a></div></div><a href="/about" data-i18n="about">关于</a><a href="/rss.xml">RSS</a></div><div class="nav-locale"><div class="language-switcher" role="group" aria-label="Language" data-i18n-aria-label="languageLabel"><button class="language-switcher__button" type="button" data-lang-button="zh" aria-pressed="true" title="中文" data-i18n-title="languageZh">中</button><button class="language-switcher__button" type="button" data-lang-button="ja" aria-pressed="false" title="日本語" data-i18n-title="languageJa">日</button><button class="language-switcher__button" type="button" data-lang-button="en" aria-pressed="false" title="English" data-i18n-title="languageEn">EN</button></div><button class="theme-toggle" type="button" data-theme-toggle aria-label="切换到夜间模式" title="切换到夜间模式"><svg data-theme-icon="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg><svg data-theme-icon="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 13.2A8.8 8.8 0 0 1 10.8 3.2 8.8 8.8 0 1 0 20.8 13.2Z"></path></svg></button></div></nav></header><main class="site-main article-layout"><article class="article-shell"><header class="article-hero" data-reveal><div class="article-meta"><span data-i18n="articleType">文章</span><span>·</span><time datetime="2026-07-04T00:00:00.000Z" data-i18n-date>2026/07/4</time></div><h1 class="article-title" data-i18n="post.ffxiv-acr-devlog.title">从零到可发布：KANO 暗黑骑士 ACR 开发笔记</h1><p class="article-desc" data-i18n="post.ffxiv-acr-devlog.description">一篇偏教学的开发记录：如何把暗黑骑士 ACR 从基础循环、爆发、QT、Hotkey、配置保存做到打包发布。</p></header><div class="prose" data-reveal><p>这篇文章整理的是我这几天开发 KANO 暗黑骑士 ACR 的过程。</p>
+<p>它不是单纯的成果展示，而是一篇偏教学的开发笔记：一个 ACR 从基础循环、爆发逻辑、QT 开关、Hotkey 面板、配置保存、资源文件，到最后打包成订阅仓库格式，中间到底要考虑哪些问题。</p>
+<p>其中有一部分行为对齐参考了成熟实现和公开资料。这里不展开具体反编译过程，只把它当成“观察成熟实现并整理成自己的代码结构”的阶段。真正有价值的是后半段：怎么把参考到的思路变成可维护、可调试、可发布的项目。</p>
+<h2 id="开发目标">开发目标</h2>
+<p>KANO 最开始的目标很直接：写一套 100 级暗黑骑士循环。</p>
+<p>但真正做起来会发现，一个能长期使用的 ACR 不能只会按技能。它至少要解决这些问题：</p>
+<ul>
+<li>高难模式和日随模式要分开。</li>
+<li>100 级爆发要尽量对齐标准循环。</li>
+<li>60 / 120 秒爆发要能稳定触发。</li>
+<li>GCD 和 oGCD 插入不能互相卡住。</li>
+<li>QT 开关要能控制循环细节。</li>
+<li>Hotkey 要能优先触发减伤、挑衅、黑盾、献奉等技能。</li>
+<li>UI 要看得懂，也要能拖动并保存位置。</li>
+<li>配置要能保存，不能每次重启插件都初始化。</li>
+<li>资源文件要跟着 DLL 发布，不能依赖本地绝对路径。</li>
+<li>最后要能打包成订阅仓库能读取的格式。</li>
+</ul>
+<p>所以这个项目后面其实变成了一个完整 ACR 的开发范例：战斗决策、UI、配置、资源、打包、发布都要处理。</p>
+<h2 id="总体架构">总体架构</h2>
+<p>我最后采用的是比较清晰的分层结构：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>KanoRotation</span></span>
+<span class="line"><span>├─ GCD Resolver</span></span>
+<span class="line"><span>├─ oGCD Resolver</span></span>
+<span class="line"><span>├─ DrkAeLogic</span></span>
+<span class="line"><span>├─ ApiHelper</span></span>
+<span class="line"><span>├─ KanoSettings</span></span>
+<span class="line"><span>├─ KanoQT</span></span>
+<span class="line"><span>├─ KanoHotkeyUI</span></span>
+<span class="line"><span>├─ KanoQTUI</span></span>
+<span class="line"><span>├─ KanoControlUI</span></span>
+<span class="line"><span>└─ Opener / Timeline Support</span></span></code></pre>
+<p>每一层只做自己的事。</p>
+<p><code>KanoRotation</code> 是 ACR 入口，负责注册 GCD / oGCD 决策器，处理起手、事件、UI 激活和战斗状态。</p>
+<p><code>DrkGcdResolver</code> 只负责下一发 GCD 打什么。</p>
+<p><code>DrkOffGcdResolver</code> 只负责下一发能力技打什么。</p>
+<p><code>DrkAeLogic</code> 放真正的职业逻辑，比如是否进爆发、是否卸蓝、是否召唤弗雷、是否使用暗影使者、日随是否 AOE、自动减伤是否触发。</p>
+<p><code>ApiHelper</code> 是我自己封装的一层 PR API 外壳。这样后面本体 API 改了，尽量只改 Helper，不要让业务逻辑到处散落框架调用。</p>
+<p>这是我觉得最关键的开发思路：<strong>不要把所有判断都塞进 Resolver。Resolver 应该像调度器，真正的规则应该沉到逻辑层。</strong></p>
+<h2 id="入口类只负责接线">入口类：只负责接线</h2>
+<p>ACR 的入口类一般实现 <code>IRotation</code>，并通过 <code>RotationMetadata</code> 标记职业、作者、版本等信息。</p>
+<p>简化后的结构大概是这样：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="csharp"><code><span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">[</span><span style="--shiki-light:#267F99;--shiki-dark:#4EC9B0">RotationMetadata</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    (</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">uint</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Job</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">DRK</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">,</span></span>
+<span class="line"><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">    "KANO"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">,</span></span>
+<span class="line"><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">    "KANO"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">,</span></span>
+<span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">    KanoRotation</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Version</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">,</span></span>
+<span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">    ContentScope</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">AcrContentScope</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">HighEnd</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)]</span></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">public</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> class</span><span style="--shiki-light:#267F99;--shiki-dark:#4EC9B0"> KanoRotation</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> : </span><span style="--shiki-light:#267F99;--shiki-dark:#4EC9B0">IRotation</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">{</span></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    public</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> const</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> string</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> Version</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"1.2.1"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    private</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> readonly</span><span style="--shiki-light:#267F99;--shiki-dark:#4EC9B0"> List</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">&#x3C;</span><span style="--shiki-light:#267F99;--shiki-dark:#4EC9B0">IDecisionResolver</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">> </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">_gcdResolvers</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">new</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">();</span></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    private</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> readonly</span><span style="--shiki-light:#267F99;--shiki-dark:#4EC9B0"> List</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">&#x3C;</span><span style="--shiki-light:#267F99;--shiki-dark:#4EC9B0">IDecisionResolver</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">> </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">_offGcdResolvers</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">new</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    public</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA"> KanoRotation</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">()</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    {</span></span>
+<span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">        _gcdResolvers</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">Add</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">new</span><span style="--shiki-light:#267F99;--shiki-dark:#4EC9B0"> DrkGcdResolver</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">());</span></span>
+<span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">        _offGcdResolvers</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">Add</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">new</span><span style="--shiki-light:#267F99;--shiki-dark:#4EC9B0"> DrkOffGcdResolver</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">());</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">        foreach</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">var</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">name</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">, </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">defaultValue</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">) </span><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">in</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> KanoQT</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">All</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)</span></span>
+<span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">            ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">添加QT</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">name</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">, </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">defaultValue</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">        KanoSettings</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Instance</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">RestoreQtSnapshot</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoSettings</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Instance</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">IsHighEnd</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">);</span></span>
+<span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">        KanoSettings</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Instance</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">ApplyModeVisibilityDefaults</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">();</span></span>
+<span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">        ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">重建QT可见性</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">();</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    public</span><span style="--shiki-light:#267F99;--shiki-dark:#4EC9B0"> PAction</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">? </span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">NextGcd</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">()</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    {</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">        foreach</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">var</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> resolver</span><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0"> in</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> _gcdResolvers</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">        {</span></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">            var</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> check</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">resolver</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">Check</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">();</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">            if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (!</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">check</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Success</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">) </span><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">continue</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">            return</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> resolver</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">GetAction</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">();</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">        }</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">        return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> null</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    public</span><span style="--shiki-light:#267F99;--shiki-dark:#4EC9B0"> PAction</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">? </span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">NextOffGcd</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">()</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    {</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">        foreach</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">var</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> resolver</span><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0"> in</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> _offGcdResolvers</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">        {</span></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">            var</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> check</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">resolver</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">Check</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">();</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">            if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (!</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">check</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Success</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">) </span><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">continue</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">            return</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> resolver</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">GetAction</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">();</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">        }</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">        return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> null</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    }</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">}</span></span></code></pre>
+<p>这里最重要的是 <code>NextGcd</code> 和 <code>NextOffGcd</code> 分开。</p>
+<p><code>NextGcd</code> 返回下一发 GCD。</p>
+<p><code>NextOffGcd</code> 返回下一发能力技。</p>
+<p>暗黑骑士的循环质量，很大一部分就取决于 oGCD 插入是否稳定。如果两者混在一起，后面调试会很痛苦。</p>
+<h2 id="为什么一定要拆-gcd-和-ogcd">为什么一定要拆 GCD 和 oGCD</h2>
+<p>最开始循环出问题时，经常会出现一种情况：GCD 一直在打基础连击，但能力技完全插不进去；或者爆发一直显示“准备中”，实际却没有执行。</p>
+<p>这通常不是技能 ID 错了，而是调度逻辑错了。</p>
+<p>FFXIV 的战斗节奏大概是：</p>
+<ul>
+<li>GCD 转动期间可以插入能力技。</li>
+<li>常规情况下一个 GCD 间隔里最多双插。</li>
+<li>如果能力技判断过于保守，就一个都插不进去。</li>
+<li>如果能力技判断过于激进，又会卡 GCD。</li>
+</ul>
+<p>所以 oGCD 不能简单写成“CD 好了就打”。它应该是：<strong>CD 好了，并且当前窗口适合插入，才打。</strong></p>
+<p>简化判断可以写成这样：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="csharp"><code><span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">private</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> static</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> bool</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA"> CanUseOffGcd</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">uint</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> id</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">, </span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">out</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> string</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> reason</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">{</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (!</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">技能已解锁</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">id</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">))</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    {</span></span>
+<span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">        reason</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"未解锁"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">        return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> false</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (!</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">技能可用</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">id</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">))</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    {</span></span>
+<span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">        reason</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"冷却中"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">        return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> false</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">动画锁定</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> > </span><span style="--shiki-light:#098658;--shiki-dark:#B5CEA8">0.1f</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    {</span></span>
+<span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">        reason</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"动画锁"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">        return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> false</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">GCD剩余</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> &#x3C;= </span><span style="--shiki-light:#098658;--shiki-dark:#B5CEA8">0.6f</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    {</span></span>
+<span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">        reason</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"GCD剩余不足"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">        return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> false</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">    reason</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"可用"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> true</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">}</span></span></code></pre>
+<p>实际项目里的判断会更复杂，比如要考虑技能队列、移动、目标、职业资源和开关状态。但核心原则不变：先判断能不能插，再判断该插什么。</p>
+<h2 id="暗黑骑士循环的资源视角">暗黑骑士循环的资源视角</h2>
+<p>暗黑骑士不是只看“哪个技能亮了”。</p>
+<p>它需要管理一组资源和窗口：</p>
+<ul>
+<li>MP</li>
+<li>暗血</li>
+<li>暗黑状态时间</li>
+<li>血乱 / 嗜血</li>
+<li>弗雷窗口</li>
+<li>60 秒爆发</li>
+<li>120 秒爆发</li>
+<li>暗影使者充能</li>
+<li>腐秽大地和腐秽黑暗</li>
+</ul>
+<p>所以循环逻辑要先回答一个问题：<strong>现在处在哪个阶段？</strong></p>
+<p>例如弗雷逻辑：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="csharp"><code><span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">public</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> static</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> bool</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA"> CanUseLivingShadow</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">()</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">{</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (!</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">获取QT</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoQT</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">弗雷</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)) </span><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> false</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (!</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">CanUseBurstSkillCommon</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">()) </span><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> false</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (!</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">技能已解锁</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoSkill</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">掠影示现</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)) </span><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> false</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (!</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">技能可用</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoSkill</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">掠影示现</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)) </span><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> false</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    return</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">DRK</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">弗雷剩余</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> &#x3C;= </span><span style="--shiki-light:#098658;--shiki-dark:#B5CEA8">0f</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">}</span></span></code></pre>
+<p><code>掠影示现</code> 不应该被普通卸资源逻辑卡住，而应该在爆发逻辑里有明确优先级。</p>
+<p>再比如 MP 倾泻：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="csharp"><code><span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">public</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> static</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> bool</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA"> ShouldSpendMp</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">()</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">{</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (!</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">获取QT</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoQT</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">暗影锋</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)) </span><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> false</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">获取QT</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoQT</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">攒资源</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)) </span><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> false</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">IsBurstWindow</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">())</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">        return</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">玩家的蓝量</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> >= </span><span style="--shiki-light:#098658;--shiki-dark:#B5CEA8">30</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    var</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> keepMp</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoSettings</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Instance</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">IsHighEnd</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">        ? </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoSettings</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Instance</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">HighEndKeepMp</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">        : </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoSettings</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Instance</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KeepMp</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    return</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">玩家的蓝量</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> >= </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">keepMp</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">}</span></span></code></pre>
+<p>这里不能写死一个 MP 阈值，因为高难和日随的目标不一样。高难要考虑爆发、黑盾和资源池；日随更多是打得舒服、不发呆、能处理小怪场景。</p>
+<h2 id="爆发逻辑先定义窗口再排优先级">爆发逻辑：先定义窗口，再排优先级</h2>
+<p>暗黑骑士爆发重点是稳定打出这些内容：</p>
+<ul>
+<li>血乱 / 嗜血</li>
+<li>弗雷</li>
+<li>暗影使者</li>
+<li>腐秽大地</li>
+<li>腐秽黑暗</li>
+<li>精雕怒斩 / 吸血深渊</li>
+<li>暗影锋卸蓝</li>
+<li>血溅 / 寂灭</li>
+<li>掠影的蔑视</li>
+</ul>
+<p>开发时我遇到过一个典型问题：开场 120 爆发一直显示循环中，但实际没有打能力技。</p>
+<p>后来处理思路是：</p>
+<ol>
+<li>起手窗口单独识别。</li>
+<li>爆发公共条件单独写。</li>
+<li>弗雷、血乱、暗影使者、腐秽大地等技能按优先级排。</li>
+<li>卸蓝逻辑要知道什么时候全卸，什么时候保留黑盾。</li>
+<li>QT 能覆盖默认行为。</li>
+</ol>
+<p>能力技优先级可以这样组织：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="csharp"><code><span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">DrkAeLogic</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">CanUseLivingShadow</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">() &#x26;&#x26; </span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">TryUse</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoSkill</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">掠影示现</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">))</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> true</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">DrkAeLogic</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">CanUseBurstSkill</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">() &#x26;&#x26; </span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">TryUse</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoSkill</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">血乱</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">))</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> true</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">DrkAeLogic</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">CanUseShadowbringer</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">() &#x26;&#x26; </span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">TryUse</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoSkill</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">暗影使者</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">))</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> true</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">DrkAeLogic</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">CanUseSaltedEarth</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">() &#x26;&#x26; </span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">TryUse</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoSkill</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">腐秽大地</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">))</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> true</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">DrkAeLogic</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">ShouldSpendMp</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">() &#x26;&#x26; </span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">TryUse</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">JobHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">EdgeOrFlood</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">aoe</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)))</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> true</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span></code></pre>
+<p>这里的优先级很重要。</p>
+<p>比如 120 窗口里，暗影使者和暗影锋都能打，但它们不是同一类资源。暗影使者是 120 爆发重点技能，暗影锋是 MP 倾泻技能。实战中要通过 Logs 对比去调整顺序，而不是凭感觉堆判断。</p>
+<h2 id="qt按钮要真正影响循环">QT：按钮要真正影响循环</h2>
+<p>我最后保留了一批比较实用的 QT：</p>
+<ul>
+<li>嗜血 / 血乱</li>
+<li>弗雷</li>
+<li>暗影使者</li>
+<li>腐秽大地</li>
+<li>精雕 / 海胆</li>
+<li>暗影锋</li>
+<li>掠影的蔑视</li>
+<li>伤残</li>
+<li>AOE</li>
+<li>卸蓝</li>
+<li>卸暗血</li>
+<li>爆发期留黑盾</li>
+<li>攒资源</li>
+<li>爆发药</li>
+<li>倾泻爆发</li>
+<li>血溅 / 寂灭</li>
+<li>强制 AOE</li>
+<li>不打爆发</li>
+<li>小停一下</li>
+<li>日随专用的自动减伤 / 自动挑衅 / 拉怪模式</li>
+</ul>
+<p>QT 的核心不是显示一个按钮，而是要真正改变循环。</p>
+<p>例如：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="csharp"><code><span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (!</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">获取QT</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoQT</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">暗影锋</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">))</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> false</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">获取QT</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoQT</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">攒资源</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">))</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> false</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">获取QT</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoQT</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">爆发期留黑盾</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">) &#x26;&#x26; </span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">IsBurstWindow</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">())</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    return</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">玩家的蓝量</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> >= </span><span style="--shiki-light:#098658;--shiki-dark:#B5CEA8">60</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span></code></pre>
+<p>一个 QT 最好只控制一类行为，不要一个按钮影响太多东西。否则后期调试时，你会不知道到底是哪一个开关改变了结果。</p>
+<h2 id="高难模式和日随模式不要强行合并">高难模式和日随模式不要强行合并</h2>
+<p>这是开发中很重要的一点。</p>
+<p>高难模式追求：</p>
+<ul>
+<li>爆发对齐。</li>
+<li>资源池管理稳定。</li>
+<li>尽量不被日随拉怪逻辑干扰。</li>
+<li>时间轴减伤能触发。</li>
+<li>开场起手稳定。</li>
+</ul>
+<p>日随模式追求：</p>
+<ul>
+<li>能自动判断 AOE。</li>
+<li>能拉怪。</li>
+<li>能自动减伤。</li>
+<li>能处理低等级技能缺失。</li>
+<li>打起来舒服，不发呆。</li>
+</ul>
+<p>所以 KANO 里做了 <code>IsHighEnd</code>：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="csharp"><code><span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">public</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> static</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> bool</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> IsHighEnd</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> => </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoSettings</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Instance</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">IsHighEnd</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span></code></pre>
+<p>然后在关键逻辑里分支：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="csharp"><code><span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">IsHighEnd</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">{</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    return</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA"> GetHighEndAction</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">();</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">return</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA"> GetDailyAction</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">();</span></span></code></pre>
+<p>不要试图用一套逻辑同时覆盖高难和日随。两者目标不一样，强行合并最后只会互相打架。</p>
+<h2 id="自动减伤看似简单其实最需要-debug">自动减伤：看似简单，其实最需要 Debug</h2>
+<p>日随自动减伤是一个很典型的功能。</p>
+<p>它要判断：</p>
+<ul>
+<li>是否日随模式。</li>
+<li>自动减伤 QT 是否开启。</li>
+<li>玩家是否在战斗中。</li>
+<li>周围敌人数量。</li>
+<li>玩家血量。</li>
+<li>Boss 是否读条。</li>
+<li>目标是否正在打我。</li>
+<li>大减伤之间是否需要错开。</li>
+<li>小怪是否快死了，快死就别浪费大减。</li>
+</ul>
+<p>示意：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="csharp"><code><span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">public</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> static</span><span style="--shiki-light:#267F99;--shiki-dark:#4EC9B0"> PAction</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">? </span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">GetDailyAutoDefenseAction</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">()</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">{</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">IsHighEnd</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">) </span><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> null</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (!</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">获取QT</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoQT</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">自动减伤</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)) </span><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> null</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (!</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">战斗中</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> || </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">玩家</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> == </span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">null</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">) </span><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> null</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    var</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> selfHp</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">玩家血量</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> / </span><span style="--shiki-light:#098658;--shiki-dark:#B5CEA8">100f</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    var</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> nearby5</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">CountEnemiesAroundPlayer</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#098658;--shiki-dark:#B5CEA8">5f</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">);</span></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    var</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> target</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">目标</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    var</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> bossCasting</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">target</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> != </span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">null</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> &#x26;&#x26; </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">是Boss</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">target</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">) &#x26;&#x26; </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">target</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">IsCasting</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">JobHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">IsUsableOffGcd</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoSkill</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">至黑之夜</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">        &#x26;&#x26; (</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">bossCasting</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> || </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">nearby5</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> >= </span><span style="--shiki-light:#098658;--shiki-dark:#B5CEA8">3</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> &#x26;&#x26; </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">selfHp</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> &#x3C; </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoSettings</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Instance</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">AutoDefenseBlackestNightThreshold</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">))</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    {</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">        return</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">对自己技能</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoSkill</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">至黑之夜</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">);</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">JobHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">IsUsableOffGcd</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoSkill</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">铁壁</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">        &#x26;&#x26; </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">nearby5</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> >= </span><span style="--shiki-light:#098658;--shiki-dark:#B5CEA8">3</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">        &#x26;&#x26; </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">selfHp</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> &#x3C; </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoSettings</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Instance</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">AutoDefenseRampartThreshold</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    {</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">        return</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">对自己技能</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">KanoSkill</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">铁壁</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">);</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">    return</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> null</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">}</span></span></code></pre>
+<p>自动减伤一定要加 Debug，否则你不知道它为什么不开。</p>
+<p>比如开发面板里可以输出：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>自动减伤未触发：血量 92% 高于铁壁阈值 85%</span></span>
+<span class="line"><span>自动减伤未触发：周围敌人数量 1，不满足小怪减伤条件</span></span>
+<span class="line"><span>自动减伤触发：Boss 读条，使用黑盾</span></span></code></pre>
+<p>这种信息比“怎么没开减伤”有用太多。</p>
+<h2 id="hotkey-面板ui-不要写死技能逻辑">Hotkey 面板：UI 不要写死技能逻辑</h2>
+<p>Hotkey 是 KANO 里很重要的体验功能。</p>
+<p>我做的 Hotkey 不是简单按钮列表，而是一个独立悬浮窗：</p>
+<ul>
+<li>点击图标触发技能。</li>
+<li>技能进入 CD 后图标变暗。</li>
+<li>左下角显示 CD 时间。</li>
+<li>右下角显示技能次数。</li>
+<li>支持 2 号位黑盾 / 献奉。</li>
+<li>支持行尸走肉、LB、挑衅、退避、防击退、开关盾姿。</li>
+<li>图标使用自定义资源，跟 DLL 一起发布。</li>
+<li>支持拖动改变布局顺序。</li>
+<li>窗口位置持久化。</li>
+</ul>
+<p>核心写法是把每个按钮抽象成一个 Entry：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="csharp"><code><span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">private</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> sealed</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> record</span><span style="--shiki-light:#267F99;--shiki-dark:#4EC9B0"> HotkeyEntry</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    string</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> Key</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">,</span></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    string</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> Name</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">,</span></span>
+<span class="line"><span style="--shiki-light:#267F99;--shiki-dark:#4EC9B0">    Func</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">&#x3C;</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">uint</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">> </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">GetDisplayActionId</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">,</span></span>
+<span class="line"><span style="--shiki-light:#267F99;--shiki-dark:#4EC9B0">    IHotkeyLogic</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> Logic</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">,</span></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    string</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> IconPath</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">);</span></span></code></pre>
+<p>点击时不要直接在 UI 里写死技能逻辑，而是交给 <code>Logic.OnClick()</code>：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="csharp"><code><span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ImGui</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">InvisibleButton</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">$"drk-hotkey-</span><span style="--shiki-light:#000000FF;--shiki-dark:#D4D4D4">{</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">entry</span><span style="--shiki-light:#000000FF;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Key</span><span style="--shiki-light:#000000FF;--shiki-dark:#D4D4D4">}</span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">, </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">slotSize</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">))</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">{</span></span>
+<span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">    entry</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Logic</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">OnClick</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">();</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">}</span></span></code></pre>
+<p>这样后面要支持“对自己”“对 2 号位”“切换盾姿”“LB”都能单独写逻辑类，不会把 UI 写乱。</p>
+<h2 id="自定义-qt-ui绘制和状态分离">自定义 QT UI：绘制和状态分离</h2>
+<p>最开始我用的是 PR 本体 QT，但样式控制比较有限。后来做了 KANO 自己的 QT 悬浮窗。</p>
+<p>好处是：</p>
+<ul>
+<li>样式完全可控。</li>
+<li>每行几个按钮可以自己控制。</li>
+<li>可以隐藏本体 QT。</li>
+<li>可以和 Hotkey / 启停设置面板统一视觉。</li>
+</ul>
+<p>绘制思路是：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="csharp"><code><span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">var</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> drawList</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ImGui</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">GetWindowDrawList</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">();</span></span>
+<span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">drawList</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">AddRectFilled</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">pos</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">, </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">max</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">, </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">bgColor</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">, </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">radius</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">);</span></span>
+<span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">drawList</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">AddRect</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">pos</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">, </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">max</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">, </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">borderColor</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">, </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">radius</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ImGui</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">SetCursorScreenPos</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">buttonPos</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">);</span></span>
+<span class="line"><span style="--shiki-light:#AF00DB;--shiki-dark:#C586C0">if</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> (</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ImGui</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">InvisibleButton</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">id</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">, </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">size</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">))</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">{</span></span>
+<span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">    ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">设置QT</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">key</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">, !</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ApiHelper</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">获取QT</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">key</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">));</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">}</span></span></code></pre>
+<p>这类 UI 写法有四个要点：</p>
+<ul>
+<li>外观由 <code>drawList</code> 画。</li>
+<li>点击区域用 <code>InvisibleButton</code>。</li>
+<li>状态从 QT 读取。</li>
+<li>点击后写回 QT。</li>
+</ul>
+<p>UI 不应该自己决定循环逻辑。UI 只负责显示状态和修改状态。</p>
+<h2 id="配置保存不要写到临时目录">配置保存：不要写到临时目录</h2>
+<p>配置保存很容易被忽略，但实际很影响体验。</p>
+<p>KANO 里需要保存：</p>
+<ul>
+<li>高难 / 日随模式。</li>
+<li>QT 默认状态。</li>
+<li>Hotkey 顺序。</li>
+<li>Hotkey 窗口位置。</li>
+<li>QT 窗口位置。</li>
+<li>启停设置窗口位置。</li>
+<li>起手倒计时设置。</li>
+<li>存蓝阈值。</li>
+<li>自动减伤阈值。</li>
+</ul>
+<p>我用的是 JSON：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="csharp"><code><span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">public</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> class</span><span style="--shiki-light:#267F99;--shiki-dark:#4EC9B0"> KanoSettings</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">{</span></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    public</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> bool</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> IsHighEnd</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">true</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    public</span><span style="--shiki-light:#267F99;--shiki-dark:#4EC9B0"> List</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">&#x3C;</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">string</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">> </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">HotkeyOrder</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">new</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    public</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> bool</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> HotkeyWindowPositionSaved</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">false</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    public</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> float</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> HotkeyWindowX</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#098658;--shiki-dark:#B5CEA8">120f</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    public</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> float</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> HotkeyWindowY</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#098658;--shiki-dark:#B5CEA8">360f</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    public</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> int</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> HighEndKeepMp</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#098658;--shiki-dark:#B5CEA8">96</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">    public</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6"> void</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA"> Save</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">()</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    {</span></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">        var</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> json</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">JsonSerializer</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">Serialize</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">this</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">, </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">JsonOptions</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">);</span></span>
+<span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">        File</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">WriteAllText</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">FilePath</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">, </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">json</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">);</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    }</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">}</span></span></code></pre>
+<p>这里踩过一个坑：不能把配置写到 PR 的临时 cache 目录里。</p>
+<p>临时 cache 目录可能带进程 ID，例如：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>PromeRotation\.Cache\14068\ACR\KANO.Settings.json</span></span></code></pre>
+<p>插件重启后进程 ID 变了，配置就像丢了一样。</p>
+<p>稳定写法应该用插件配置目录：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="csharp"><code><span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Path</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">Combine</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Svc</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">PluginInterface</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">ConfigDirectory</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">FullName</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">, </span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"KANO.Settings.json"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)</span></span></code></pre>
+<p>这样每个用户电脑上都会自动保存到自己的配置目录，不需要写死我的用户名，也不会因为进程变化丢配置。</p>
+<h2 id="资源文件发布不要依赖本地绝对路径">资源文件发布：不要依赖本地绝对路径</h2>
+<p>Hotkey 图标一开始可以用本地绝对路径调试，比如桌面上的资源文件夹。调试可以，发布不行。</p>
+<p>发布时必须把资源放进项目里：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>Resources</span></span>
+<span class="line"><span>└─ PixelHotkeysV4_BigCutePinkOrange</span></span>
+<span class="line"><span>   ├─ rampart.png</span></span>
+<span class="line"><span>   ├─ reprisal.png</span></span>
+<span class="line"><span>   ├─ the_blackest_night.png</span></span>
+<span class="line"><span>   └─ ...</span></span></code></pre>
+<p>然后在 csproj 里设置复制：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="xml"><code><span class="line"><span style="--shiki-light:#800000;--shiki-dark:#808080">&#x3C;</span><span style="--shiki-light:#800000;--shiki-dark:#569CD6">ItemGroup</span><span style="--shiki-light:#800000;--shiki-dark:#808080">></span></span>
+<span class="line"><span style="--shiki-light:#800000;--shiki-dark:#808080">  &#x3C;</span><span style="--shiki-light:#800000;--shiki-dark:#569CD6">Content</span><span style="--shiki-light:#E50000;--shiki-dark:#9CDCFE"> Include</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">=</span><span style="--shiki-light:#0000FF;--shiki-dark:#CE9178">"Resources\**\*.png"</span><span style="--shiki-light:#800000;--shiki-dark:#808080">></span></span>
+<span class="line"><span style="--shiki-light:#800000;--shiki-dark:#808080">    &#x3C;</span><span style="--shiki-light:#800000;--shiki-dark:#569CD6">CopyToOutputDirectory</span><span style="--shiki-light:#800000;--shiki-dark:#808080">></span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">PreserveNewest</span><span style="--shiki-light:#800000;--shiki-dark:#808080">&#x3C;/</span><span style="--shiki-light:#800000;--shiki-dark:#569CD6">CopyToOutputDirectory</span><span style="--shiki-light:#800000;--shiki-dark:#808080">></span></span>
+<span class="line"><span style="--shiki-light:#800000;--shiki-dark:#808080">  &#x3C;/</span><span style="--shiki-light:#800000;--shiki-dark:#569CD6">Content</span><span style="--shiki-light:#800000;--shiki-dark:#808080">></span></span>
+<span class="line"><span style="--shiki-light:#800000;--shiki-dark:#808080">&#x3C;/</span><span style="--shiki-light:#800000;--shiki-dark:#569CD6">ItemGroup</span><span style="--shiki-light:#800000;--shiki-dark:#808080">></span></span></code></pre>
+<p>代码里再按 ACR DLL 所在目录找资源：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="csharp"><code><span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">var</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> dir</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Path</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">GetDirectoryName</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">typeof</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span><span style="--shiki-light:#267F99;--shiki-dark:#4EC9B0">KanoRotation</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">).</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Assembly</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Location</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">);</span></span>
+<span class="line"><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">var</span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE"> iconPath</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> = </span><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">Path</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">.</span><span style="--shiki-light:#795E26;--shiki-dark:#DCDCAA">Combine</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">(</span></span>
+<span class="line"><span style="--shiki-light:#001080;--shiki-dark:#9CDCFE">    dir</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">,</span></span>
+<span class="line"><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">    "Resources"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">,</span></span>
+<span class="line"><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">    "PixelHotkeysV4_BigCutePinkOrange"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">,</span></span>
+<span class="line"><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">    "rampart.png"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">);</span></span></code></pre>
+<p>这样别人下载插件后，图标也能正常显示。</p>
+<h2 id="时间轴联动重点是节点语义">时间轴联动：重点是节点语义</h2>
+<p>后面我还做了时间轴相关尝试。</p>
+<p>思路上可以分成两类。</p>
+<p>第一类是时间轴触发技能，比如减伤轴：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>Boss 技能条件节点</span></span>
+<span class="line"><span>└─ 行为节点：使用铁壁 / 黑盾 / 献奉 / 行尸走肉</span></span></code></pre>
+<p>第二类是时间轴控制 QT，比如某个阶段开启“爆发期留黑盾”，某个阶段关闭“倾泻爆发”。</p>
+<p>这里要注意：时间轴行为节点必须能被本体识别，不能只是写一个名字。行为节点要和 ACR / PR 能识别的动作绑定，否则在编辑器里看起来有名字，游戏里实际不会触发。</p>
+<p>这个阶段最重要的经验是：<strong>时间轴不是单纯 JSON 转换，节点语义必须对上本体能执行的行为。</strong></p>
+<h2 id="调试方法">调试方法</h2>
+<p>开发 ACR 最重要的是调试。</p>
+<p>我主要用了几种方式：</p>
+<ol>
+<li>游戏里看下一发 GCD / oGCD。</li>
+<li>开发面板输出当前状态。</li>
+<li>木人测试。</li>
+<li>ACT / FFLogs 对比技能数量。</li>
+<li>和参考实现对比 60 / 120 窗口。</li>
+<li>编译后直接放进 PR ACR 目录测试。</li>
+</ol>
+<p>例如 <code>NextOffGcd</code> 没有输出时，可以把阻塞原因写出来：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>无可用oGCD | 最近阻塞: 暗影使者 CD中 | GCD剩余: 1.42 动画锁: 0.00 MP: 6000 暗血: 50</span></span></code></pre>
+<p>这种调试信息比“技能不打了”有用太多。</p>
+<p>我的经验是：只要一个判断可能返回 <code>false</code>，它就应该能解释为什么是 <code>false</code>。否则后面排查时，每一个条件都会变成黑盒。</p>
+<h2 id="打包和-github-发布">打包和 GitHub 发布</h2>
+<p>PR 的 ACR 订阅大概需要：</p>
+<ul>
+<li><code>KANO.zip</code></li>
+<li><code>repo.json</code></li>
+<li>GitHub Release</li>
+</ul>
+<p><code>repo.json</code> 示例：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="json"><code><span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">{</span></span>
+<span class="line"><span style="--shiki-light:#0451A5;--shiki-dark:#9CDCFE">  "author"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">: </span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"KANO"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">,</span></span>
+<span class="line"><span style="--shiki-light:#0451A5;--shiki-dark:#9CDCFE">  "version"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">: </span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"1.2.1"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">,</span></span>
+<span class="line"><span style="--shiki-light:#0451A5;--shiki-dark:#9CDCFE">  "description"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">: </span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"KANO - FFXIV Dark Knight ACR"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">,</span></span>
+<span class="line"><span style="--shiki-light:#0451A5;--shiki-dark:#9CDCFE">  "supportedJobs"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">: [</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    {</span></span>
+<span class="line"><span style="--shiki-light:#0451A5;--shiki-dark:#9CDCFE">      "contentScope"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">: </span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"HighEnd"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">,</span></span>
+<span class="line"><span style="--shiki-light:#0451A5;--shiki-dark:#9CDCFE">      "job"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">: </span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"DRK"</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">    }</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">  ],</span></span>
+<span class="line"><span style="--shiki-light:#0451A5;--shiki-dark:#9CDCFE">  "apiVersion"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">: </span><span style="--shiki-light:#098658;--shiki-dark:#B5CEA8">15</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">,</span></span>
+<span class="line"><span style="--shiki-light:#0451A5;--shiki-dark:#9CDCFE">  "referencePromeVersion"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">: </span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"1.5.4.2"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">,</span></span>
+<span class="line"><span style="--shiki-light:#0451A5;--shiki-dark:#9CDCFE">  "downloadUrl"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">: </span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"https://github.com/KanoNoUta/KanoACR/releases/download/v1.2.1/KANO.zip"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">,</span></span>
+<span class="line"><span style="--shiki-light:#0451A5;--shiki-dark:#9CDCFE">  "sha256"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">: </span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"..."</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">}</span></span></code></pre>
+<p>打包流程：</p>
+<ol>
+<li><code>dotnet build -c Release</code></li>
+<li>把 <code>KANO.dll</code>、<code>KANO.deps.json</code>、<code>Resources</code> 放进临时 pkg 文件夹。</li>
+<li>压缩成 <code>KANO.zip</code>。</li>
+<li>计算 SHA256。</li>
+<li>更新 <code>repo.json</code>。</li>
+<li>上传到 GitHub Release。</li>
+</ol>
+<p>GitHub CLI 上传：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="powershell"><code><span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">gh release upload v1.</span><span style="--shiki-light:#098658;--shiki-dark:#B5CEA8">2.1</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> KANO.zip repo.json --clobber --repo KanoNoUta/KanoACR</span></span></code></pre>
+<p>用户订阅链接：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>https://github.com/KanoNoUta/KanoACR/releases/latest/download/repo.json</span></span></code></pre>
+<p>这里踩过一个小坑：<code>repo.json</code> 最好写成无 BOM UTF-8，避免某些解析器抽风。</p>
+<h2 id="最重要的几个经验">最重要的几个经验</h2>
+<p>第一，先写能跑的循环，再写漂亮的 UI。</p>
+<p>UI 很容易让人上头，但 ACR 的核心永远是决策逻辑。GCD / oGCD 不稳定，UI 再好看也没用。</p>
+<p>第二，所有复杂判断都要能解释。</p>
+<p>比如为什么不打弗雷？为什么不卸蓝？为什么不自动减伤？代码里最好能输出原因。</p>
+<p>第三，QT 不是越多越好。</p>
+<p>QT 太多会让用户迷路，也会让逻辑分支爆炸。每个 QT 都应该有明确用途。</p>
+<p>第四，高难和日随要分开。</p>
+<p>日随需要舒服，高难需要严格。它们不是同一个问题。</p>
+<p>第五，不要依赖本地路径。</p>
+<p>图标、配置、发布文件都要考虑别人电脑能不能用。</p>
+<p>第六，参考成熟实现时，重点学行为，不是照搬代码。</p>
+<p>真正要吸收的是技能优先级、爆发窗口、资源保留、减伤触发条件、低等级兼容思路。</p>
+<h2 id="后续还能做什么">后续还能做什么</h2>
+<p>KANO 后面还可以继续加：</p>
+<ul>
+<li>战斗分析面板。</li>
+<li>自动减伤 Debug。</li>
+<li>120 / 60 爆发状态灯。</li>
+<li>时间轴 QT 控制节点。</li>
+<li>配置导入 / 导出。</li>
+<li>日随低等级循环更精细的适配。</li>
+<li>FFLogs 技能数量对比辅助。</li>
+<li>一键上传发布脚本。</li>
+</ul>
+<p>如果继续做，我最推荐先加“战斗分析面板”。因为它能直接告诉我这一把少了几个暗影锋、暗影使者有没有延迟、120 窗口有没有卸完蓝。调循环时，这比肉眼看战斗记录省太多时间。</p>
+<h2 id="结语">结语</h2>
+<p>这几天开发 KANO 最大的感受是：写 ACR 并不是简单地把技能按顺序排出来。</p>
+<p>它更像是在写一个小型战斗决策系统：</p>
+<ul>
+<li>要理解职业循环。</li>
+<li>要理解框架 API。</li>
+<li>要处理 UI。</li>
+<li>要处理配置。</li>
+<li>要处理资源。</li>
+<li>要处理发布。</li>
+<li>还要不断用实战日志反推问题。</li>
+</ul>
+<p>当基础结构搭好以后，后面每次优化都会轻松很多。KANO 现在已经从“能打技能”变成了“能维护、能调试、能发布”的 ACR，这也是这几天开发里最有价值的部分。</p>
+</div></article></main><footer class="site-footer"><div class="site-footer__inner"><div class="footer-brand"><span class="footer-brand__name">鹿の歌</span><span class="footer-brand__desc">Kano no Uta</span></div><div class="footer-links"><div class="footer-group"><span class="footer-group__title" data-i18n="footerNavTitle">导航</span><a href="/" data-i18n="home">首页</a><a href="/blog" data-i18n="posts">文章</a><a href="/links" data-i18n="links">友链</a><a href="/lab" data-i18n="lab">Lab</a><a href="/about" data-i18n="about">关于</a></div><div class="footer-group"><span class="footer-group__title" data-i18n="footerSubscribeTitle">订阅</span><a href="/rss.xml">RSS</a><a href="/blog" data-i18n="footerArchive">文章归档</a></div><div class="footer-group"><span class="footer-group__title" data-i18n="footerContactTitle">联系</span><a href="mailto:hello@example.com">Email</a><a href="https://github.com/KanoNoUta" target="_blank" rel="noreferrer">GitHub</a></div></div></div><div class="site-footer__bottom"><span>&copy; 2026 <span data-i18n="footerWritten">Kano. Written at kanonouta.com.</span></span><span data-i18n="footerPowered">Powered by Astro.</span></div></footer></div><script type="module" src="/_astro/BaseLayout.astro_astro_type_script_index_0_lang.BoY_wrRy.js"></script></body></html>

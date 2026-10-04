@@ -1,0 +1,1 @@
+function e(e){let t,n,r=()=>{t=void 0;let r=n;n=void 0,r&&e(...r)},i=(...e)=>{n=e,t??=requestAnimationFrame(r)};return i.cancel=()=>{t!==void 0&&cancelAnimationFrame(t),t=void 0,n=void 0},i.flush=()=>{t!==void 0&&cancelAnimationFrame(t),r()},i}export{e as t};

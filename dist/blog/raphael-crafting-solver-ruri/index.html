@@ -1,0 +1,474 @@
+<!DOCTYPE html><html lang="zh-CN"><head><script>
+			const characterBackgrounds = [
+				{ id: 'emilia', url: '/images/backgrounds/re0-emilia-hd.webp', small: '/images/backgrounds/re0-emilia-hd-small.webp' },
+				{ id: 'beatrice', url: '/images/backgrounds/re0-beatrice-hd.webp', small: '/images/backgrounds/re0-beatrice-hd-small.webp' },
+				{ id: 'ram', url: '/images/backgrounds/re0-ram-hd.webp', small: '/images/backgrounds/re0-ram-hd-small.webp' },
+				{ id: 'rem', url: '/images/backgrounds/re0-rem-hd.webp', small: '/images/backgrounds/re0-rem-hd-small.webp' },
+			];
+			const selectedBackground =
+				characterBackgrounds[Math.floor(Math.random() * characterBackgrounds.length)];
+
+			document.documentElement.style.setProperty(
+				'--page-character-background',
+				`url("${selectedBackground.url}")`,
+			);
+			document.documentElement.style.setProperty(
+				'--page-character-background-small',
+				`image-set(url("${selectedBackground.small}") 1x, url("${selectedBackground.url}") 2x)`,
+			);
+			document.documentElement.dataset.characterBackground = selectedBackground.id;
+		</script><!-- Global Metadata --><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#fdfcf8"><!-- Apply the saved theme before the body paints; no deferred bundle is needed. --><script>
+	(() => {
+		const root = document.documentElement;
+		const storageKey = 'kano-theme';
+		const system = window.matchMedia('(prefers-color-scheme: dark)');
+		const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+		let preference = null;
+		let activeTransition = null;
+		let fadeTimer;
+		const valid = value => value === 'light' || value === 'dark';
+		const readPreference = () => {
+			try {
+				const saved = window.localStorage.getItem(storageKey);
+				return valid(saved) ? saved : null;
+			} catch {
+				return preference;
+			}
+		};
+		const labels = {
+			zh: { light: '切换到夜间模式', dark: '切换到日间模式' },
+			ja: { light: 'ダークモードに切り替え', dark: 'ライトモードに切り替え' },
+			en: { light: 'Switch to dark mode', dark: 'Switch to light mode' },
+		};
+		const updateControl = () => {
+			const button = document.querySelector('[data-theme-toggle]');
+			const language = root.dataset.language || root.lang.split('-')[0];
+			const label = (labels[language] || labels.zh)[root.dataset.theme];
+			button?.setAttribute('aria-label', label);
+			button?.setAttribute('title', label);
+		};
+		const applyTheme = () => {
+			const theme = preference || (system.matches ? 'dark' : 'light');
+			root.dataset.theme = theme;
+			document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#1c1c1e' : '#fdfcf8');
+			updateControl();
+			window.dispatchEvent(new CustomEvent('kano:theme-change', { detail: { theme } }));
+		};
+		const stopTransition = () => {
+			activeTransition?.skipTransition();
+			activeTransition = null;
+			window.clearTimeout(fadeTimer);
+			delete root.dataset.themeTransition;
+		};
+		const animateTheme = button => {
+			stopTransition();
+			if (reducedMotion.matches || document.hidden) {
+				applyTheme();
+				return;
+			}
+			if (typeof document.startViewTransition !== 'function') {
+				root.dataset.themeTransition = 'fade';
+				// Resolve the old colors before applying the new palette.
+				getComputedStyle(root).backgroundColor;
+				applyTheme();
+				fadeTimer = window.setTimeout(() => delete root.dataset.themeTransition, 240);
+				return;
+			}
+			const bounds = button.getBoundingClientRect();
+			const x = bounds.left + bounds.width / 2;
+			const y = bounds.top + bounds.height / 2;
+			const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+			root.style.setProperty('--theme-origin-x', `${x}px`);
+			root.style.setProperty('--theme-origin-y', `${y}px`);
+			root.style.setProperty('--theme-reveal-radius', `${Math.ceil(radius)}px`);
+			root.dataset.themeTransition = 'reveal';
+			try {
+				const transition = document.startViewTransition(applyTheme);
+				activeTransition = transition;
+				// Skipped snapshots (rapid clicks or background tabs) still apply the latest choice.
+				transition.ready.catch(() => {});
+				transition.finished.catch(() => {}).finally(() => {
+					if (activeTransition !== transition) return;
+					activeTransition = null;
+					delete root.dataset.themeTransition;
+				});
+			} catch {
+				stopTransition();
+				applyTheme();
+			}
+		};
+		preference = readPreference();
+		applyTheme();
+		const connect = () => {
+			updateControl();
+			document.querySelector('[data-theme-toggle]')?.addEventListener('click', event => {
+				preference = (preference || root.dataset.theme) === 'dark' ? 'light' : 'dark';
+				try { window.localStorage.setItem(storageKey, preference); } catch { /* Keep the current page usable without storage. */ }
+				animateTheme(event.currentTarget);
+			});
+		};
+		if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', connect, { once: true });
+		else connect();
+		system.addEventListener('change', () => { if (!preference) applyTheme(); });
+		window.addEventListener('storage', event => {
+			if (event.key !== storageKey && event.key !== null) return;
+			stopTransition();
+			preference = valid(event.newValue) ? event.newValue : null;
+			applyTheme();
+		});
+		window.addEventListener('pageshow', () => { preference = readPreference(); applyTheme(); });
+		window.addEventListener('pagehide', stopTransition);
+		reducedMotion.addEventListener('change', () => {
+			if (reducedMotion.matches) { stopTransition(); applyTheme(); }
+		});
+		window.addEventListener('kano:language-change', updateControl);
+	})();
+</script><link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="sitemap" href="/sitemap-index.xml"><link rel="alternate" type="application/rss+xml" title="Kano no Uta" href="https://kanonouta.com/rss.xml"><meta name="generator" content="Astro v7.0.6"><!-- Google Fonts: Typography-inspired font stack --><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;500;600;700&family=Source+Code+Pro:wght@400;500;600&family=Source+Sans+Pro:wght@100;300;400;600;700&display=swap" rel="stylesheet"><!-- Canonical URL --><link rel="canonical" href="https://kanonouta.com/blog/raphael-crafting-solver-ruri/"><!-- Primary Meta Tags --><title>把制作变成一场搜索：Raphael 算法与 Ruri 求解器实践 - Kano no Uta</title><meta name="description" content="从一次错误的 Infeasible 开始，拆解 Raphael 的状态搜索、上下界与 Pareto 剪枝，以及我如何把这些思想落进 Ruri 的制作求解器。"><!-- Open Graph / Facebook --><meta property="og:type" content="website"><meta property="og:url" content="https://kanonouta.com/blog/raphael-crafting-solver-ruri/"><meta property="og:title" content="把制作变成一场搜索：Raphael 算法与 Ruri 求解器实践 - Kano no Uta"><meta property="og:description" content="从一次错误的 Infeasible 开始，拆解 Raphael 的状态搜索、上下界与 Pareto 剪枝，以及我如何把这些思想落进 Ruri 的制作求解器。"><meta property="og:image" content="https://kanonouta.com/_astro/blog-placeholder-1.Bx0Zcyzv.jpg"><!-- Twitter --><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="/_astro/BaseLayout.DUhaF0qn.css"></head><body data-i18n-page="post.raphael-crafting-solver-ruri"><div class="scroll-progress" aria-hidden="true"></div><div class="paper-light" aria-hidden="true"></div><div class="page-shell"><header class="site-header"><nav class="site-nav" aria-label="主导航" data-i18n-aria-label="navLabel"><a class="site-brand" href="/" aria-label="Kano no Uta" data-i18n-aria-label="brandLabel"><span class="site-brand__cjk" data-i18n="brandCjk">鹿の歌</span><span class="site-brand__latin">Kano no Uta</span></a><button class="nav-toggle" type="button" aria-label="打开导航" aria-expanded="false" aria-controls="nav-links" data-i18n-aria-label="openNav"><span></span><span></span></button><div class="nav-links" id="nav-links"><span class="nav-indicator" aria-hidden="true"></span><a href="/" data-i18n="home">首页</a><a href="/blog" class="active" data-i18n="posts">文章</a><a href="/links" data-i18n="links">友链</a><div class="nav-menu"><a href="/lab" data-i18n="lab">Lab</a><div class="nav-submenu" aria-label="Lab 子菜单" data-i18n-aria-label="labMenu"><a href="/lab/map/" data-i18n="map">地图</a></div></div><a href="/about" data-i18n="about">关于</a><a href="/rss.xml">RSS</a></div><div class="nav-locale"><div class="language-switcher" role="group" aria-label="Language" data-i18n-aria-label="languageLabel"><button class="language-switcher__button" type="button" data-lang-button="zh" aria-pressed="true" title="中文" data-i18n-title="languageZh">中</button><button class="language-switcher__button" type="button" data-lang-button="ja" aria-pressed="false" title="日本語" data-i18n-title="languageJa">日</button><button class="language-switcher__button" type="button" data-lang-button="en" aria-pressed="false" title="English" data-i18n-title="languageEn">EN</button></div><button class="theme-toggle" type="button" data-theme-toggle aria-label="切换到夜间模式" title="切换到夜间模式"><svg data-theme-icon="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg><svg data-theme-icon="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 13.2A8.8 8.8 0 0 1 10.8 3.2 8.8 8.8 0 1 0 20.8 13.2Z"></path></svg></button></div></nav></header><main class="site-main article-layout"><article class="article-shell"><header class="article-hero" data-reveal><div class="article-meta"><span data-i18n="articleType">文章</span><span>·</span><time datetime="2026-08-26T00:00:00.000Z" data-i18n-date>2026/08/26</time></div><h1 class="article-title" data-i18n="post.raphael-crafting-solver-ruri.title">把制作变成一场搜索：Raphael 算法与 Ruri 求解器实践</h1><p class="article-desc" data-i18n="post.raphael-crafting-solver-ruri.description">从一次错误的 Infeasible 开始，拆解 Raphael 的状态搜索、上下界与 Pareto 剪枝，以及我如何把这些思想落进 Ruri 的制作求解器。</p></header><div class="prose" data-reveal><blockquote>
+<p>Ruri 目前仍是面向 FFXIV 国服 7.51、Dalamud CN API 15 的开发中插件。本文讨论的是求解器设计、离线模拟与自动化验证；没有完成真实客户端验证的部分，我不会写成已经稳定可用。</p>
+</blockquote>
+<p>这次开发最初并不是从“我要实现一个很厉害的算法”开始的。</p>
+<p>它从一条很笨的报错开始。</p>
+<p>当时我让 Ruri 制作 Recipe 37825。角色有 664 CP，配方进度是 10040，满品质是 21200。旧求解器在第一步就返回：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>Solver Infeasible: Quality requirement 21200 cannot be met by the conservative finish path</span></span>
+<span class="line"><span>(finish quality 0; optimistic max quality 322920)</span></span></code></pre>
+<p>这句话自己就已经露馅了。一边说乐观品质上限远高于目标，一边又断言目标不可达。</p>
+<p>原因是旧逻辑先找了一条“只保证完成进度”的保守收尾路径。这条路径当然不做品质，于是最终品质是 0。程序随后把“这条收尾路径没有品质”误当成“所有可能路径都无法获得品质”，连真正的品质搜索都没有开始。</p>
+<p>这个问题逼着我重新整理一个看似简单的问题：<strong>制作求解器到底在求什么？</strong></p>
+<p>答案不是一串固定技能，而是在资源有限、规则复杂、条件会变化的状态空间里，找到一条既能完成进度，又能满足品质目标的路径。</p>
+<p>沿着这个方向，我开始认真研究 <a href="https://github.com/KonaeAkira/raphael-rs">Raphael</a>。它最吸引我的地方不是“能算出宏”，而是它把 FFXIV 制作清楚地还原成了一个搜索问题。</p>
+<p>这篇文章主要讲 Raphael 的算法结构，也会讲我怎样把其中一部分思想放进 Ruri。先说清楚边界：Ruri 当前是 <strong>Raphael-inspired 的有界全局搜索</strong>，不是对 <code>raphael-rs</code> 的逐行移植，也还不能宣称拥有 Raphael 那样的严格全局最优性。</p>
+<h2 id="先把制作写成一个状态">先把制作写成一个状态</h2>
+<p>玩家看到的是耐久、CP、进度和品质。求解器看到的东西要多得多。</p>
+<p>一份简化后的制作状态可以写成：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>S = (</span></span>
+<span class="line"><span>  progress, quality, durability, cp,</span></span>
+<span class="line"><span>  condition, previousAction,</span></span>
+<span class="line"><span>  innerQuiet,</span></span>
+<span class="line"><span>  wasteNot, manipulation,</span></span>
+<span class="line"><span>  veneration, innovation, greatStrides,</span></span>
+<span class="line"><span>  finalAppraisal, muscleMemory,</span></span>
+<span class="line"><span>  specialistResources ...</span></span>
+<span class="line"><span>)</span></span></code></pre>
+<p>每使用一个技能，状态就沿着一条边移动：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>S' = Transition(S, action, outcome)</span></span></code></pre>
+<p>如果技能和当前条件都是确定的，<code>outcome</code> 也确定，这就是普通状态转移。如果动作有成功率，或者下一步球色需要按概率展开，状态转移就会出现多个分支。</p>
+<p>制作过程因此可以看成一张有向图：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>初始状态</span></span>
+<span class="line"><span>  -> 使用 Reflect 后的状态</span></span>
+<span class="line"><span>  -> 使用 Innovation 后的状态</span></span>
+<span class="line"><span>  -> 使用 Basic Touch 后的状态</span></span>
+<span class="line"><span>  -> ...</span></span>
+<span class="line"><span>  -> 进度完成且品质达标的终点</span></span></code></pre>
+<p>我们的目标也不是单一分数，而是一组有先后顺序的约束：</p>
+<ol>
+<li>必须完成制作，进度没有满的方案没有讨论价值。</li>
+<li>必须达到 HQ 或收藏品要求的品质阈值。</li>
+<li>在前两项满足后，再比较品质、步数、耗时与剩余资源。</li>
+</ol>
+<p>这种顺序很重要。不能为了多一点品质选择一条最终做不完的路径，也不能把“看起来很接近目标”当成成功。</p>
+<h2 id="先手算一个四步例子">先手算一个四步例子</h2>
+<p>先暂时忘掉游戏里的几十个技能，只保留三个虚构动作。目标是进度达到 100、品质达到 80，初始有 30 耐久和 36 CP。</p>
+<table>
+<thead>
+<tr>
+<th>动作</th>
+<th>消耗</th>
+<th>效果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Innovation</td>
+<td>18 CP</td>
+<td>下一次 Touch 的品质翻倍</td>
+</tr>
+<tr>
+<td>Touch</td>
+<td>18 CP、10 耐久</td>
+<td>增加 40 品质</td>
+</tr>
+<tr>
+<td>Synthesis</td>
+<td>10 耐久</td>
+<td>增加 50 进度</td>
+</tr>
+</tbody>
+</table>
+<p>如果只看眼前收益，连续两次 Touch 很诱人。状态会从 <code>p=0, q=0, d=30, cp=36</code> 走到 <code>p=0, q=80, d=10, cp=0</code>。品质已经达标，但只剩一次 Synthesis 的耐久，最终最多获得 50 进度，制作必然失败。</p>
+<p>真正可行的路径是：<code>Innovation → Touch → Synthesis → Synthesis</code>。Innovation 本身不消耗耐久，强化后的 Touch 一次得到 80 品质，剩余 20 耐久刚好完成两次 Synthesis。最终状态是 <code>p=100, q=80, d=0, cp=0</code>。</p>
+<p>这个很小的例子已经包含了完整求解器的三个困难：</p>
+<ol>
+<li>局部收益最高的动作，不一定属于全局可行路径。</li>
+<li>品质和进度争夺同一份耐久与 CP，不能拆成两个互不相干的问题。</li>
+<li>找到一条可行路径之后，还要判断有没有更短或品质更高的路径。</li>
+</ol>
+<p>如果使用穷举，搜索器当然可以把所有四步组合都试一遍。但真实配方有二十多个候选动作、数十步深度和大量 Buff 状态，穷举很快就失去意义。Raphael 所做的，就是在不漏掉最优路径的前提下，让大部分明显无望的组合根本不进入深层搜索。</p>
+<h2 id="为什么不能把所有可能都搜一遍">为什么不能把所有可能都搜一遍</h2>
+<p>假设每一步平均有 20 个动作可选，计划深度是 40。最朴素的搜索上限大约是：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>20^40</span></span></code></pre>
+<p>这个数字没有实际计算的意义。即使大量技能因为等级、CP、耐久和前置条件不可用，剩下的状态仍然会快速膨胀。</p>
+<p>更麻烦的是，不同动作顺序有时会到达“效果相同但资源不同”的状态。例如两条路径的 Buff、球色和连击上下文一致，但其中一条拥有更多进度、品质、耐久和 CP。继续搜索较弱的那条路径，通常只是在重复工作。</p>
+<p>所以制作求解器真正的核心不是“会搜索”，而是<strong>如何尽早证明某些分支不值得再搜</strong>。</p>
+<p>Raphael 的设计正是在做这件事。它把 best-first search、branch-and-bound、动态规划和 Pareto 优化组合起来，让几个专门的子求解器不断给主搜索提供上下界。</p>
+<h2 id="raphael-的主框架把制作当成-dag-上的最短路">Raphael 的主框架：把制作当成 DAG 上的最短路</h2>
+<p>Raphael 将制作状态视为节点，将合法动作视为边。主搜索优先扩展最有希望的节点，而不是按生成顺序盲目向下走。</p>
+<p>先定义几个符号：<code>A(s)</code> 是状态 <code>s</code> 下的合法动作集合，<code>T(s, a)</code> 是执行动作 <code>a</code> 后的状态，<code>P*</code> 与 <code>Q*</code> 分别是目标进度和目标品质。搜索过程中还会保存一条当前最好的完整方案，通常叫作 incumbent。</p>
+<p>对每个未展开状态，子求解器会提供一个乐观评价：最多能到多少进度、最多能到多少品质、至少还需要几步。所谓“乐观”，就是它只能把未来想得比现实更好，不能更差。这样，当乐观评价都无法超过 incumbent 时，真实路径更不可能超过它，整个分支就可以安全删除。</p>
+<p>一个便于理解的伪代码大致如下：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>queue.push(initialState)</span></span>
+<span class="line"><span>incumbent = none</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>while queue is not empty:</span></span>
+<span class="line"><span>    state = queue.popBest()</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>    if FinishSolver proves state cannot finish:</span></span>
+<span class="line"><span>        continue</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>    if QualityUbSolver(state) cannot reach the target:</span></span>
+<span class="line"><span>        continue</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>    if optimisticScore(state) cannot beat incumbent:</span></span>
+<span class="line"><span>        continue</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>    if another state Pareto-dominates state:</span></span>
+<span class="line"><span>        continue</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>    if state is a valid terminal state:</span></span>
+<span class="line"><span>        incumbent = better(incumbent, state)</span></span>
+<span class="line"><span>        continue</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>    expand every legal action and push child states</span></span>
+<span class="line"><span></span></span>
+<span class="line"><span>    if queue.bestOptimisticScore cannot beat incumbent:</span></span>
+<span class="line"><span>        return incumbent  // optimality is now proved</span></span></code></pre>
+<p><code>queue.popBest()</code> 是 best-first：优先处理理论上最有希望的状态。找到终点后，用 incumbent 限制后续搜索是 branch-and-bound：upper bound 是 branch 的“最好幻想”，incumbent 是目前真实拿到的“最好成绩”。当幻想都赢不了现实成绩时，就不需要继续搜索。</p>
+<p>这里必须区分两个经常混在一起的结论：</p>
+<ul>
+<li><strong>找到可行解</strong>：已经有一条路径满足进度和品质。</li>
+<li><strong>证明最优解</strong>：所有尚未展开的路径，其乐观上界都不可能超过当前解。</li>
+</ul>
+<p>第一个解出现时不能自动宣布最优。只有队列里最有希望的状态也无法击败 incumbent，最优性证明才完成。若时间或节点预算先用完，只能说得到了 bounded result，不能说 exact optimal。</p>
+<p>算法真正漂亮的地方不在主循环，而在这些“证明器”。</p>
+<h2 id="finishsolver先问还能不能做完">FinishSolver：先问还能不能做完</h2>
+<p>品质再高，如果剩余耐久和 CP 已经不可能填满进度，这个状态就是死路。</p>
+<p><code>FinishSolver</code> 把品质维度暂时放到一边，只回答一个问题：</p>
+<blockquote>
+<p>从当前状态出发，理论上最多还能获得多少进度？</p>
+</blockquote>
+<p>可以把它写成一个带 memo 的递推：<code>F(s) = max(Δprogress(s, a) + F(T(s, a)))</code>，其中 <code>a</code> 只取允许用于收尾的动作。相同的剩余 CP、耐久和进度状态再次出现时，直接复用已经算过的 <code>F(s)</code>，这就是动态规划在这里的作用。</p>
+<p>若 <code>state.progress + F(state) &lt; P*</code>，即使把未来所有动作都按最有利方式安排，进度仍然不够，这才构成“无法完成”的证明。</p>
+<p>回到前面的玩具例子。执行第二次 Touch 后只剩 10 耐久，<code>F(s)</code> 最多只能提供 50 进度，因此 <code>0 + 50 &lt; 100</code>，这条品质贪心分支会立刻被剪掉，不必继续试其它排列。</p>
+<p>为了让剪枝安全，这个估计必须乐观。它可以假设未来总能使用最划算的进度技能，可以把一些资源换算得比真实情况更宽松，但不能低估真实上限。</p>
+<p>这里有一个很容易写反的原则：</p>
+<ul>
+<li>上界算得太高，只会少剪一些节点，影响性能。</li>
+<li>上界算得太低，会把本来可行的路径剪掉，破坏正确性。</li>
+</ul>
+<p>Ruri 的 <code>ProgressFeasibilitySolver</code> 也遵守这个原则。它会故意高估可恢复耐久、高估 Waste Not 的收益，并把 CP 能换来的动作次数放宽。只有连这样宽松的估计都无法完成进度时，才允许返回“物理上不可行”。</p>
+<p>这也是 Recipe 37825 修复中最先划清的边界：<strong>进度收尾器只能证明进度问题，不能拿一条 progress-only 路径的品质为 0，去否定整个 HQ 目标。</strong></p>
+<h2 id="qualityubsolver品质最多还能涨到哪里">QualityUbSolver：品质最多还能涨到哪里</h2>
+<p>进度可完成，只代表方案不会直接失败。对于 HQ 和收藏品，还要判断剩余资源是否可能达到品质目标。</p>
+<p>Raphael 的 <code>QualityUbSolver</code> 会构造一个可接受的品质上界。它的关键思想，是把耐久、掌握、专精等资源放松成一种更容易计算的统一预算，再通过动态规划维护进度与品质的 Pareto 前沿。</p>
+<p>它不能只问“剩余资源全部拿去做品质，最多有多少”，因为那会忘记还要为完成进度预留资源。更有用的结果是一组不被支配的二元组，例如 <code>(可增加 100 进度, 可增加 80 品质)</code>、<code>(可增加 150 进度, 可增加 50 品质)</code>。前者品质更高，后者进度更多，二者都可能有价值，所以都留在 Pareto 前沿里。</p>
+<p>递推可以理解为：对每个合法动作，取它产生的 <code>(Δprogress, Δquality)</code>，加上下一个状态的 Pareto 集合，再删除被其它点同时超过的结果。这样得到的不是一条具体手法，而是一张“剩余资源最多能交换出哪些进度/品质组合”的边界。</p>
+<p>在玩具例子里，第一次 Touch 后剩余 20 耐久。若再花 10 耐久做品质，剩下的资源只能换到 50 进度；若把 20 耐久都留给 Synthesis，则品质停在 40。两种资源分配都无法到达 <code>(100, 80)</code>，联合边界因此能够证明这条分支无解。单独计算“最大品质 80”和“最大进度 100”反而会得到一个错误印象，因为这两个最大值不能同时取得。</p>
+<p>Ruri 当前的实现更简单，也更保守。<code>QualityUpperBoundSolver</code> 会假设未来的品质动作都处于非常理想的环境：</p>
+<ul>
+<li>Excellent 条件提供最高品质倍率。</li>
+<li>Innovation 与 Great Strides 同时提供收益。</li>
+<li>Inner Quiet 按最高层估计。</li>
+<li>剩余耐久和 CP 可以换成尽可能多的品质动作。</li>
+</ul>
+<p>这显然不是一份真实计划。它只是一个故意夸大的天花板。</p>
+<p>如果在这样的理想世界里，品质上限仍然低于目标，那么当前分支才可以安全剪掉。反过来，上界高于目标并不代表一定可行，只代表“暂时没有证据说它不行”。</p>
+<p>这两个结论不能混用：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>upperBound &#x3C; target  -> 可以证明不可达</span></span>
+<span class="line"><span>upperBound >= target -> 只能继续搜索</span></span></code></pre>
+<p>旧求解器的错误，本质上就是把第二种情况说成了第一种。</p>
+<h2 id="steplbsolver至少还需要多少步">StepLbSolver：至少还需要多少步</h2>
+<p>当 CP 很充足时，进度上界和品质上界都会变得很宽，剪枝效果开始下降。这时 Raphael 还会计算一个步数下界：即使未来每一步都非常理想，至少还要多少步才能同时满足进度和品质。</p>
+<p>它的递推形式与最短路很接近：目标已满足时 <code>L(s)=0</code>，否则 <code>L(s)=1+min L(T(s,a))</code>。为了让它成为安全下界，计算时可以忽略部分 CP 限制或假设更强的动作，但不能把最低所需步数估得比真实值更大。</p>
+<p>如果当前路径已经用了 25 步，理论上至少还要 8 步，而已经找到的最好方案只需要 30 步，那么这条路径不可能在步数上更优，可以直接停止扩展。</p>
+<p>注意，这条剪枝只有在前面的目标层级已经相同后才成立。例如两个方案都能满品质时才能比较步数；不能拿一个更短但品质不达标的方案去支配更长的满品质方案。</p>
+<p>Ruri 目前只有一个简化的 <code>FinishStepLowerBound</code>，它用当前配方里最高的进度 potency 估算最少收尾步数，还没有实现 Raphael 那套完整的 <code>StepLbSolver</code> 动态规划。因此它更适合参与队列排序，而不是作为严格的最优性证明。</p>
+<p>这也是当前实现与 Raphael 原算法之间的一条重要差距。</p>
+<h2 id="pareto-剪枝留下真正有区别的状态">Pareto 剪枝：留下真正有区别的状态</h2>
+<p>设有两个状态 A 和 B，它们拥有相同的球色、前一个动作、Buff 剩余时间和有限资源上下文，并且：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>A.progress   >= B.progress</span></span>
+<span class="line"><span>A.quality    >= B.quality</span></span>
+<span class="line"><span>A.durability >= B.durability</span></span>
+<span class="line"><span>A.cp         >= B.cp</span></span>
+<span class="line"><span>A.steps      &#x3C;= B.steps</span></span></code></pre>
+<p>至少有一项严格更好时，A 就支配 B。因为从 B 能继续做的事情，A 通常都能做，而且资源不会更差。</p>
+<p>于是 B 没有继续留在搜索队列里的必要。</p>
+<p>真正实现时，不能只比较四个数字。Buff 时间不同、球色不同、前一个动作不同，后续动作的合法性和收益都会改变。把这些状态粗暴合并，会产生很隐蔽的错误。</p>
+<p>Ruri 因此先用 <code>FrontierKey</code> 固定所有会影响后续的上下文：</p>
+<ul>
+<li>Condition 与 PreviousAction</li>
+<li>Waste Not、Manipulation、Veneration、Innovation 等剩余回合</li>
+<li>Inner Quiet 层数</li>
+<li>Heart and Soul、Trained Perfection 等有限资源</li>
+</ul>
+<p>只有 key 相同的状态，才比较进度、品质、耐久和 CP。较弱状态被已有状态支配时直接丢弃；新状态更强时，则从前沿中移除被它支配的旧状态。</p>
+<p>这一步可以看成搜索中的“去重升级版”。普通去重只能删除完全相同的状态；Pareto 支配还可以删除那些虽然数字不同、但在所有重要维度上都更差的状态。</p>
+<p>Raphael 为了处理更大规模的状态集，会使用分桶和近似 Pareto 前沿降低支配检查成本。Ruri 当前还是每个等价上下文内的列表比较，规模和性能上都更朴素。</p>
+<h2 id="ruri-怎样把这些组件接起来">Ruri 怎样把这些组件接起来</h2>
+<p>Ruri 当前的质量目标会进入 <code>GlobalCraftSearchSolver</code>。它的大致结构是：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>CraftSimulator</span></span>
+<span class="line"><span>  -> ProgressFeasibilitySolver</span></span>
+<span class="line"><span>  -> QualityUpperBoundSolver</span></span>
+<span class="line"><span>  -> best-first PriorityQueue</span></span>
+<span class="line"><span>  -> Pareto frontier</span></span>
+<span class="line"><span>  -> simulator replay verification</span></span></code></pre>
+<p>其中 <code>CraftSimulator</code> 是整个系统的真值来源。动作是否合法、消耗多少 CP 和耐久、增加多少进度和品质、Buff 如何 tick，都必须经过同一个模拟器。搜索器不能维护一套“为了算得快”的规则，执行器再维护另一套“游戏里真正使用”的规则，否则两边迟早会漂移。</p>
+<p>搜索开始时，Ruri 先做三件事：</p>
+<ol>
+<li>校验状态字段和规则集是否完整。</li>
+<li>用进度乐观上界拒绝真正的物理死路。</li>
+<li>用启发式规划器生成一条可完成的 incumbent，给搜索一个起始候选。</li>
+</ol>
+<p>随后节点进入优先队列。队列评分会同时观察当前品质、当前进度、两者的乐观上界、最少收尾步数以及剩余 CP 和耐久。这里没有简单采用“品质越高越先搜”，因为那会再次制造开头遇到的问题：前半段把资源全部花在品质上，最后没有能力完成进度。</p>
+<p>我最后使用了一个偏平衡的排序，让品质爬升阶段有空间建立 Inner Quiet 和增益窗口，同时在品质成熟后逐渐把优先权交给进度瓶颈。</p>
+<p>这不是 Raphael 原版的评分函数，而是 Ruri 为实时重规划加入的工程取舍。</p>
+<p>把 Raphael 的设计与 Ruri 当前实现并排看，会更容易理解差异：</p>
+<table>
+<thead>
+<tr>
+<th>角色</th>
+<th>Raphael 的完整思路</th>
+<th>Ruri 当前实现</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>主搜索</td>
+<td>Best-first + branch-and-bound，搜索到最优性证明</td>
+<td>有时间、深度和节点预算的 PriorityQueue 搜索</td>
+</tr>
+<tr>
+<td>FinishSolver</td>
+<td>压缩状态上的 DP 可行性与下界</td>
+<td>乐观进度公式 + 有界收尾 beam</td>
+</tr>
+<tr>
+<td>QualityUbSolver</td>
+<td>资源松弛后的进度/品质 Pareto DP</td>
+<td>故意放宽的品质公式上界</td>
+</tr>
+<tr>
+<td>StepLbSolver</td>
+<td>动态规划求安全步数下界</td>
+<td>按最大进度 potency 的简化估计</td>
+</tr>
+<tr>
+<td>Pareto</td>
+<td>分桶的近似前沿，面向大规模状态</td>
+<td>等价上下文内的列表支配比较</td>
+</tr>
+<tr>
+<td>随机性</td>
+<td>可选 adversarial 最坏情况模式</td>
+<td>单独的 expectimax 路由，live 默认确定性</td>
+</tr>
+</tbody>
+</table>
+<p>因此，Ruri 当前能证明的是“找到并重放验证了一条满足目标的方案”，而不是“已经证明这条方案在所有合法方案中步数最少”。尤其是找到满品质终点后，当前 live 路径会优先返回可执行的第一步，不会为了证明最短宏继续穷尽队列。这是实时执行和离线最优求解之间最核心的取舍。</p>
+<h2 id="为什么加入语义动作组合">为什么加入“语义动作组合”</h2>
+<p>逐个技能扩展最干净，但在一秒钟的 live 预算里，很容易把大量时间消耗在明显的中间状态上。</p>
+<p>因此 Ruri 除了单动作，还会尝试若干有实际意义的动作组合，例如：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>Basic Touch -> Standard Touch -> Advanced Touch</span></span>
+<span class="line"><span>Observe -> Focused Touch</span></span>
+<span class="line"><span>Veneration -> Groundwork -> Groundwork</span></span></code></pre>
+<p>这些组合不是绕过模拟器的宏。组合内的每个动作仍然逐个经过合法性检查和状态转移；任何一步非法，整个组合都不会进入队列。</p>
+<p>它更像给搜索器提供一些“常见短语”，让它不必每次都从单个字重新拼句子。</p>
+<p>代价也很明确：动作组合、优先级和预算会给搜索带来启发式偏向。它可以更快找到实用方案，却也进一步说明当前实现不能被称为严格 exact solver。</p>
+<h2 id="静态宏不够实机需要滚动重规划">静态宏不够，实机需要滚动重规划</h2>
+<p>离线求出一条完整计划，并不代表游戏里应该从头机械执行到底。</p>
+<p>真实制作中，球色会变化，动作可能被拒绝，观察器也可能暂时拿不到完整状态。Ruri 的 live 执行采用 receding horizon，也就是滚动时域：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>观察真实状态</span></span>
+<span class="line"><span>  -> 从当前状态重新求解</span></span>
+<span class="line"><span>  -> 只发送计划中的第一个动作</span></span>
+<span class="line"><span>  -> 等待真实状态推进</span></span>
+<span class="line"><span>  -> 校验 revision、资源变化与会话身份</span></span>
+<span class="line"><span>  -> 再求解下一步</span></span></code></pre>
+<p>这让求解器不必假装自己能预知未来球色，也避免了模拟状态与游戏状态在数十步后积累误差。</p>
+<p>这里的“只执行第一步”并不是浪费完整计划。完整计划证明当前动作后面至少存在一条可行延续，而重新观察则负责把下一步建立在真实世界上。</p>
+<p>如果动作发送后没有观察到状态变化，Ruri 不会盲目重复发送。未知状态、超时、会话切换和资源异常都会 fail closed。对自动化插件来说，不乱按比“尽量继续跑”更重要。</p>
+<h2 id="随机动作放在哪里">随机动作放在哪里</h2>
+<p>Raphael 有 adversarial 模式，它按最坏条件评估品质损失，用更高的计算成本寻找对球色排列更稳健的宏。这和“平均收益最高”不是同一个目标。</p>
+<p>可以把两种目标简单理解为：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>adversarial -> 最坏情况仍然成立</span></span>
+<span class="line"><span>expectimax   -> 按概率计算平均结果最好</span></span></code></pre>
+<p>Ruri 当前的 <code>GlobalCraftSearchSolver</code> 走确定性、live-safe 路径。带成功率的动作和概率分析交给独立的 <code>StochasticExpectimaxSolver</code>，由 decision node 与 chance node 交替展开。</p>
+<p>在 live 保守模式下，我默认不让全局搜索使用随机成功动作。因为一次看起来期望值很高的失败，可能直接破坏已经保留的进度收尾资源。未来如果补 adversarial 后端，它应该与 expectimax 并存，让用户明确选择“最坏情况可靠”还是“平均收益更高”，而不是把两者混成一个模糊的风险滑块。</p>
+<h2 id="修复-recipe-37825-时真正改了什么">修复 Recipe 37825 时真正改了什么</h2>
+<p>回到开头那条错误日志。这次优化最后不只是换了一个搜索器，还重新定义了几类结果的含义。</p>
+<h3 id="物理状态订单目标和求解状态必须分开">物理状态、订单目标和求解状态必须分开</h3>
+<p>模拟器只回答制作的物理结果：进度是否完成、耐久是否耗尽。</p>
+<p>订单层再判断 HQ 或收藏品品质有没有达到。</p>
+<p>求解器则返回另一组状态：</p>
+<ul>
+<li><code>Solved</code>：找到了完整方案，并通过独立模拟器重放。</li>
+<li><code>Partial</code>：有可用候选，但没有证明完整目标。</li>
+<li><code>TimedOut</code>：时间或节点预算耗尽。</li>
+<li><code>Infeasible</code>：有硬证据证明不可达。</li>
+<li><code>Unsupported</code>：规则模型不完整，拒绝猜测。</li>
+</ul>
+<p>以前最危险的问题，就是把“这次有界搜索没找到”写成 <code>Infeasible</code>。现在只要没有证明，就应该诚实地写成超时或部分结果。</p>
+<h3 id="solved-必须再模拟一遍">Solved 必须再模拟一遍</h3>
+<p>搜索器返回 <code>Solved</code> 后，<code>SolverRouter</code> 会创建一个新的模拟器，从原始状态重新执行整条计划：</p>
+<ol>
+<li>每一步动作都必须合法。</li>
+<li>最终必须是物理成功，而不是耐久耗尽。</li>
+<li>最终品质必须满足归一化后的订单目标。</li>
+</ol>
+<p>任何一项不成立，结果都会降级，错误方案也不会进入缓存。</p>
+<p>这相当于把“负责找答案”和“负责验答案”拆开。两者仍然共享规则集，但不会共享搜索器内部的临时状态。</p>
+<h3 id="缓存也属于算法正确性">缓存也属于算法正确性</h3>
+<p>求解器缓存键包含配方数据、完整制作状态、目标、风险设置、时间和节点预算、规则指纹与算法版本。</p>
+<p>如果漏掉 <code>CanHq</code>、Buff、前置动作或规则版本，两次看起来相似的请求可能错误地复用同一条计划。缓存命中很快，但命中错误答案只会让 bug 更稳定。</p>
+<h2 id="当前结果以及我不准备夸大的部分">当前结果，以及我不准备夸大的部分</h2>
+<p>针对 Recipe 37825 的回归场景，测试使用了实机日志中的一组属性：制作力 5865、加工精度 5462、CP 664、初始品质 9904、进度目标 10040、品质目标 21200。</p>
+<p>当前全局搜索可以在 dry-run 预算内找到一条可重放的满品质完成方案；模拟 live 执行也会在每次观察后重算，并最终完成进度和品质目标。测试还覆盖了观察器拿不到 <code>PreviousAction</code>、过早使用 Immaculate Mend、耐久只剩 5 点以及已进入物理死路等情况。</p>
+<p>但这里仍然有几条必须保留的注脚：</p>
+<ul>
+<li><code>ProgressFeasibilitySolver</code> 的可靠收尾搜索本身使用宽度 16、最多 8192 次扩展的有界 beam，不是 Raphael 的完整 DP。</li>
+<li><code>QualityUpperBoundSolver</code> 是宽松的公式上界，没有实现 CP 统一货币与完整 Pareto DP。</li>
+<li>当前步数下界是简化估计。</li>
+<li>主搜索受 1 秒 live 预算、深度和节点数限制。</li>
+<li>队列使用平衡评分和语义动作组合，因此结果是 bounded / heuristic，不具有严格最优性证明。</li>
+<li>随机条件的最坏情况 adversarial 搜索尚未落地。</li>
+<li>自动化测试证明模拟合同成立，不等于所有配方已经通过国服真实客户端验证。</li>
+</ul>
+<p>我宁可把这些边界写得难看一点，也不想用“AI 最优求解”之类的词把问题盖过去。算法是否值得信任，首先取决于它有没有诚实描述自己能证明什么。</p>
+<h2 id="下一步会怎么继续优化">下一步会怎么继续优化</h2>
+<p>如果继续向 Raphael 靠近，我认为顺序应该是这样的。</p>
+<p>第一步，把 FinishSolver 做成真正独立的动态规划子问题。现在的 beam 能快速找到收尾，但“没找到”不总等于“不存在”。更强的 memo 与状态压缩可以减少这种不确定性。</p>
+<p>第二步，实现更严格的品质上界。把耐久、掌握和有限资源转换成统一预算，再维护 <code>(progress, quality)</code> 的 Pareto 前沿。上界越紧，主搜索越少在幻想中的高品质路径上浪费时间。</p>
+<p>第三步，补完整的 StepLbSolver。它在资源充裕的后期尤其重要，可以证明一些路径无论如何都不可能在步数上超过 incumbent。</p>
+<p>第四步，把当前列表式 Pareto 前沿换成分桶结构，并测量每类状态的支配命中率。优化之前先知道时间到底花在状态转移、上下界还是支配检查上。</p>
+<p>第五步，加入 adversarial 模式和 Monte Carlo 重放。前者回答“最坏球色能否成功”，后者回答“给定概率模型后，这条计划实际有多大概率达到 HQ 或收藏档位”。</p>
+<p>最后才是并行化。没有足够强的剪枝之前，多线程往往只是更快地产生无用状态。</p>
+<h2 id="写在最后">写在最后</h2>
+<p>研究 Raphael 之后，我对制作求解器最大的改观是：它并不是在背一套手法。</p>
+<p>它真正处理的是一组证明。</p>
+<ul>
+<li>FinishSolver 证明这条路还有能力完成。</li>
+<li>QualityUbSolver 证明它是否仍有资格追求目标品质。</li>
+<li>StepLbSolver 证明它是否可能在步数上胜过当前答案。</li>
+<li>Pareto 前沿证明哪些状态只是更差的重复品。</li>
+<li>独立重放证明搜索器交出的答案真的符合规则。</li>
+</ul>
+<p>Ruri 现在只走完了其中一部分，而且为了 live 一秒预算做了不少现实取舍。但 Recipe 37825 的那次误判至少让我把一条原则刻进了代码里：</p>
+<blockquote>
+<p>没找到答案，不等于答案不存在；只有拿得出证明，才能说它不可行。</p>
+</blockquote>
+<p>这句话比任何一条具体制作宏都更重要。</p>
+<h2 id="参考资料">参考资料</h2>
+<ul>
+<li><a href="https://github.com/KonaeAkira/raphael-rs">KonaeAkira/raphael-rs</a></li>
+<li><a href="https://github.com/KonaeAkira/raphael-rs/wiki/Algorithm-Overview">Raphael Algorithm Overview</a></li>
+<li><a href="https://github.com/Tnze/ffxiv-best-craft">Tnze/ffxiv-best-craft</a></li>
+<li><a href="https://github.com/PunishXIV/Artisan">PunishXIV/Artisan</a></li>
+</ul>
+</div></article></main><footer class="site-footer"><div class="site-footer__inner"><div class="footer-brand"><span class="footer-brand__name">鹿の歌</span><span class="footer-brand__desc">Kano no Uta</span></div><div class="footer-links"><div class="footer-group"><span class="footer-group__title" data-i18n="footerNavTitle">导航</span><a href="/" data-i18n="home">首页</a><a href="/blog" data-i18n="posts">文章</a><a href="/links" data-i18n="links">友链</a><a href="/lab" data-i18n="lab">Lab</a><a href="/about" data-i18n="about">关于</a></div><div class="footer-group"><span class="footer-group__title" data-i18n="footerSubscribeTitle">订阅</span><a href="/rss.xml">RSS</a><a href="/blog" data-i18n="footerArchive">文章归档</a></div><div class="footer-group"><span class="footer-group__title" data-i18n="footerContactTitle">联系</span><a href="mailto:hello@example.com">Email</a><a href="https://github.com/KanoNoUta" target="_blank" rel="noreferrer">GitHub</a></div></div></div><div class="site-footer__bottom"><span>&copy; 2026 <span data-i18n="footerWritten">Kano. Written at kanonouta.com.</span></span><span data-i18n="footerPowered">Powered by Astro.</span></div></footer></div><script type="module" src="/_astro/BaseLayout.astro_astro_type_script_index_0_lang.BoY_wrRy.js"></script></body></html>

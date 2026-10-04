@@ -1,0 +1,199 @@
+<!DOCTYPE html><html lang="zh-CN"><head><script>
+			const characterBackgrounds = [
+				{ id: 'emilia', url: '/images/backgrounds/re0-emilia-hd.webp', small: '/images/backgrounds/re0-emilia-hd-small.webp' },
+				{ id: 'beatrice', url: '/images/backgrounds/re0-beatrice-hd.webp', small: '/images/backgrounds/re0-beatrice-hd-small.webp' },
+				{ id: 'ram', url: '/images/backgrounds/re0-ram-hd.webp', small: '/images/backgrounds/re0-ram-hd-small.webp' },
+				{ id: 'rem', url: '/images/backgrounds/re0-rem-hd.webp', small: '/images/backgrounds/re0-rem-hd-small.webp' },
+			];
+			const selectedBackground =
+				characterBackgrounds[Math.floor(Math.random() * characterBackgrounds.length)];
+
+			document.documentElement.style.setProperty(
+				'--page-character-background',
+				`url("${selectedBackground.url}")`,
+			);
+			document.documentElement.style.setProperty(
+				'--page-character-background-small',
+				`image-set(url("${selectedBackground.small}") 1x, url("${selectedBackground.url}") 2x)`,
+			);
+			document.documentElement.dataset.characterBackground = selectedBackground.id;
+		</script><!-- Global Metadata --><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#fdfcf8"><!-- Apply the saved theme before the body paints; no deferred bundle is needed. --><script>
+	(() => {
+		const root = document.documentElement;
+		const storageKey = 'kano-theme';
+		const system = window.matchMedia('(prefers-color-scheme: dark)');
+		const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+		let preference = null;
+		let activeTransition = null;
+		let fadeTimer;
+		const valid = value => value === 'light' || value === 'dark';
+		const readPreference = () => {
+			try {
+				const saved = window.localStorage.getItem(storageKey);
+				return valid(saved) ? saved : null;
+			} catch {
+				return preference;
+			}
+		};
+		const labels = {
+			zh: { light: '切换到夜间模式', dark: '切换到日间模式' },
+			ja: { light: 'ダークモードに切り替え', dark: 'ライトモードに切り替え' },
+			en: { light: 'Switch to dark mode', dark: 'Switch to light mode' },
+		};
+		const updateControl = () => {
+			const button = document.querySelector('[data-theme-toggle]');
+			const language = root.dataset.language || root.lang.split('-')[0];
+			const label = (labels[language] || labels.zh)[root.dataset.theme];
+			button?.setAttribute('aria-label', label);
+			button?.setAttribute('title', label);
+		};
+		const applyTheme = () => {
+			const theme = preference || (system.matches ? 'dark' : 'light');
+			root.dataset.theme = theme;
+			document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#1c1c1e' : '#fdfcf8');
+			updateControl();
+			window.dispatchEvent(new CustomEvent('kano:theme-change', { detail: { theme } }));
+		};
+		const stopTransition = () => {
+			activeTransition?.skipTransition();
+			activeTransition = null;
+			window.clearTimeout(fadeTimer);
+			delete root.dataset.themeTransition;
+		};
+		const animateTheme = button => {
+			stopTransition();
+			if (reducedMotion.matches || document.hidden) {
+				applyTheme();
+				return;
+			}
+			if (typeof document.startViewTransition !== 'function') {
+				root.dataset.themeTransition = 'fade';
+				// Resolve the old colors before applying the new palette.
+				getComputedStyle(root).backgroundColor;
+				applyTheme();
+				fadeTimer = window.setTimeout(() => delete root.dataset.themeTransition, 240);
+				return;
+			}
+			const bounds = button.getBoundingClientRect();
+			const x = bounds.left + bounds.width / 2;
+			const y = bounds.top + bounds.height / 2;
+			const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+			root.style.setProperty('--theme-origin-x', `${x}px`);
+			root.style.setProperty('--theme-origin-y', `${y}px`);
+			root.style.setProperty('--theme-reveal-radius', `${Math.ceil(radius)}px`);
+			root.dataset.themeTransition = 'reveal';
+			try {
+				const transition = document.startViewTransition(applyTheme);
+				activeTransition = transition;
+				// Skipped snapshots (rapid clicks or background tabs) still apply the latest choice.
+				transition.ready.catch(() => {});
+				transition.finished.catch(() => {}).finally(() => {
+					if (activeTransition !== transition) return;
+					activeTransition = null;
+					delete root.dataset.themeTransition;
+				});
+			} catch {
+				stopTransition();
+				applyTheme();
+			}
+		};
+		preference = readPreference();
+		applyTheme();
+		const connect = () => {
+			updateControl();
+			document.querySelector('[data-theme-toggle]')?.addEventListener('click', event => {
+				preference = (preference || root.dataset.theme) === 'dark' ? 'light' : 'dark';
+				try { window.localStorage.setItem(storageKey, preference); } catch { /* Keep the current page usable without storage. */ }
+				animateTheme(event.currentTarget);
+			});
+		};
+		if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', connect, { once: true });
+		else connect();
+		system.addEventListener('change', () => { if (!preference) applyTheme(); });
+		window.addEventListener('storage', event => {
+			if (event.key !== storageKey && event.key !== null) return;
+			stopTransition();
+			preference = valid(event.newValue) ? event.newValue : null;
+			applyTheme();
+		});
+		window.addEventListener('pageshow', () => { preference = readPreference(); applyTheme(); });
+		window.addEventListener('pagehide', stopTransition);
+		reducedMotion.addEventListener('change', () => {
+			if (reducedMotion.matches) { stopTransition(); applyTheme(); }
+		});
+		window.addEventListener('kano:language-change', updateControl);
+	})();
+</script><link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="sitemap" href="/sitemap-index.xml"><link rel="alternate" type="application/rss+xml" title="Kano no Uta" href="https://kanonouta.com/rss.xml"><meta name="generator" content="Astro v7.0.6"><!-- Google Fonts: Typography-inspired font stack --><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;500;600;700&family=Source+Code+Pro:wght@400;500;600&family=Source+Sans+Pro:wght@100;300;400;600;700&display=swap" rel="stylesheet"><!-- Canonical URL --><link rel="canonical" href="https://kanonouta.com/blog/bypass-openai-deranking-bps/"><!-- Primary Meta Tags --><title>绕过 OpenAI 账号降智：直连 BPS 端点让 ChatGPT 满血复活 - Kano no Uta</title><meta name="description" content="最近火遍全网的 OpenAI 降智绕过方案：反代 Excel 插件里的 GPT，直连 bps.openai.com 的 BasisPoints 接口，带上 ChatGPT 的 access_token 即可满血调用。"><!-- Open Graph / Facebook --><meta property="og:type" content="website"><meta property="og:url" content="https://kanonouta.com/blog/bypass-openai-deranking-bps/"><meta property="og:title" content="绕过 OpenAI 账号降智：直连 BPS 端点让 ChatGPT 满血复活 - Kano no Uta"><meta property="og:description" content="最近火遍全网的 OpenAI 降智绕过方案：反代 Excel 插件里的 GPT，直连 bps.openai.com 的 BasisPoints 接口，带上 ChatGPT 的 access_token 即可满血调用。"><meta property="og:image" content="https://kanonouta.com/_astro/blog-placeholder-1.Bx0Zcyzv.jpg"><!-- Twitter --><meta name="twitter:card" content="summary_large_image"><link rel="stylesheet" href="/_astro/BaseLayout.DUhaF0qn.css"></head><body data-i18n-page="post.bypass-openai-deranking-bps"><div class="scroll-progress" aria-hidden="true"></div><div class="paper-light" aria-hidden="true"></div><div class="page-shell"><header class="site-header"><nav class="site-nav" aria-label="主导航" data-i18n-aria-label="navLabel"><a class="site-brand" href="/" aria-label="Kano no Uta" data-i18n-aria-label="brandLabel"><span class="site-brand__cjk" data-i18n="brandCjk">鹿の歌</span><span class="site-brand__latin">Kano no Uta</span></a><button class="nav-toggle" type="button" aria-label="打开导航" aria-expanded="false" aria-controls="nav-links" data-i18n-aria-label="openNav"><span></span><span></span></button><div class="nav-links" id="nav-links"><span class="nav-indicator" aria-hidden="true"></span><a href="/" data-i18n="home">首页</a><a href="/blog" class="active" data-i18n="posts">文章</a><a href="/links" data-i18n="links">友链</a><div class="nav-menu"><a href="/lab" data-i18n="lab">Lab</a><div class="nav-submenu" aria-label="Lab 子菜单" data-i18n-aria-label="labMenu"><a href="/lab/map/" data-i18n="map">地图</a></div></div><a href="/about" data-i18n="about">关于</a><a href="/rss.xml">RSS</a></div><div class="nav-locale"><div class="language-switcher" role="group" aria-label="Language" data-i18n-aria-label="languageLabel"><button class="language-switcher__button" type="button" data-lang-button="zh" aria-pressed="true" title="中文" data-i18n-title="languageZh">中</button><button class="language-switcher__button" type="button" data-lang-button="ja" aria-pressed="false" title="日本語" data-i18n-title="languageJa">日</button><button class="language-switcher__button" type="button" data-lang-button="en" aria-pressed="false" title="English" data-i18n-title="languageEn">EN</button></div><button class="theme-toggle" type="button" data-theme-toggle aria-label="切换到夜间模式" title="切换到夜间模式"><svg data-theme-icon="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg><svg data-theme-icon="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 13.2A8.8 8.8 0 0 1 10.8 3.2 8.8 8.8 0 1 0 20.8 13.2Z"></path></svg></button></div></nav></header><main class="site-main article-layout"><article class="article-shell"><header class="article-hero" data-reveal><div class="article-meta"><span data-i18n="articleType">文章</span><span>·</span><time datetime="2026-09-24T00:00:00.000Z" data-i18n-date>2026/09/24</time></div><h1 class="article-title" data-i18n="post.bypass-openai-deranking-bps.title">绕过 OpenAI 账号降智：直连 BPS 端点让 ChatGPT 满血复活</h1><p class="article-desc" data-i18n="post.bypass-openai-deranking-bps.description">最近火遍全网的 OpenAI 降智绕过方案：反代 Excel 插件里的 GPT，直连 bps.openai.com 的 BasisPoints 接口，带上 ChatGPT 的 access_token 即可满血调用。</p></header><div class="prose" data-reveal><p>最近一个玩法在 X 上很火，几乎火遍全网：有天才反代了 <strong>Excel 插件里的 GPT</strong>，并且写了一个反代小程序。我随手测了一下，还真是满血。</p>
+<p>这篇文章把这个玩法的原理和实现细节讲清楚，顺便说说怎么把它接入 sub2api 这类网关，做成「降智后自动切换」的兜底通道。</p>
+<blockquote>
+<p>先说结论：直接打 <code>https://bps.openai.com/basispoints/api/responses</code>，带上 ChatGPT 网页版的 access token 就行了。</p>
+</blockquote>
+<h2 id="什么是降智">什么是「降智」</h2>
+<p>用过 ChatGPT 账号做 API 中转的人应该都遇到过：同一个账号，官方客户端里回答得好好的，一旦通过 Codex / OAuth 通道批量调用，OpenAI 就会悄悄把模型换成更弱的版本，或者压低推理强度。回答质量肉眼可见地下降，社区一般管这个叫「降智」。</p>
+<p>降智的本质是 OpenAI 按<strong>入口和客户端身份</strong>做差异化调度：网页版、官方插件、第三方 OAuth 客户端，走的后端通道不同，拿到的模型档位也不同。</p>
+<h2 id="意外的突破口excel-插件">意外的突破口：Excel 插件</h2>
+<p>这次的突破口来自一个意想不到的地方——微软 Excel 里集成的 GPT 插件。</p>
+<p>有人逆向了这个插件的网络请求，发现它并没有走常规的 ChatGPT 后端，而是打到了一个专门的端点：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>https://bps.openai.com/basispoints/api/responses</span></span></code></pre>
+<p><code>bps</code> 是 <strong>BasisPoints</strong> 的缩写，看起来是 OpenAI 内部给这类嵌入式 / 合作方客户端准备的 Responses API 通道。关键在于：<strong>这个通道不认常规的降智策略</strong>，用它发请求，模型是满血的。</p>
+<p>我实测的结果：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>gpt-6-astra</code></td>
+<td>200 ✅</td>
+</tr>
+<tr>
+<td><code>gpt-5.6-sol</code></td>
+<td>200 ✅</td>
+</tr>
+<tr>
+<td><code>gpt-6-sol</code></td>
+<td>403 <code>basispoints_model_access_changed</code></td>
+</tr>
+<tr>
+<td><code>gpt-6-luna</code></td>
+<td>403 <code>basispoints_model_access_changed</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>gpt-6-astra</code> 和 <code>gpt-5.6-sol</code> 可以直接打通；部分更新的模型会返回 403，错误码 <code>basispoints_model_access_changed</code> 说明 BPS 通道有自己独立的模型权限列表，不是所有模型都能走这条路。</p>
+<h2 id="实现细节">实现细节</h2>
+<p>整个方案的核心只有两步：拿到 ChatGPT 网页版的凭证，然后换上 BPS 需要的请求头。</p>
+<p><strong>第一步：取 access token 和 account id。</strong> 登录 ChatGPT 网页版后，从会话里取出 <code>access_token</code>，它是一个普通的 JWT，解析 payload 里的 <code>https://api.openai.com/auth</code> 声明就能拿到账号信息：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="python"><code><span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">access_token = session_info.get(</span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"access_token"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">claims = _jwt_payload(access_token)</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">auth_claims = claims.get(</span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"https://api.openai.com/auth"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)  </span><span style="--shiki-light:#008000;--shiki-dark:#6A9955"># ← 普通 ChatGPT JWT</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">account_id = user_info.get(</span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"chatgpt_account_id"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">) </span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">or</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4"> auth_claims.get(</span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"chatgpt_account_id"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">)</span></span></code></pre>
+<p><strong>第二步：带着专用请求头打 BPS 端点。</strong> 和常规 ChatGPT 后端的区别主要在几个 header 上：</p>
+<pre class="astro-code astro-code-themes light-plus dark-plus" style="--shiki-light:#000000;--shiki-dark:#D4D4D4;--shiki-light-bg:#FFFFFF;--shiki-dark-bg:#1E1E1E; overflow-x: auto;" tabindex="0" data-language="python"><code><span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">headers = {</span></span>
+<span class="line"><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">    "authorization"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">: </span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">f</span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"Bearer </span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">{</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">access_token</span><span style="--shiki-light:#0000FF;--shiki-dark:#569CD6">}</span><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">,</span></span>
+<span class="line"><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">    "chatgpt-account-id"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">: account_id,</span></span>
+<span class="line"><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">    "x-openai-account-id"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">: account_id,</span></span>
+<span class="line"><span style="--shiki-light:#A31515;--shiki-dark:#CE9178">    "x-basispoints-auth-mode"</span><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">: auth_mode,  </span><span style="--shiki-light:#008000;--shiki-dark:#6A9955"># "chatgpt"</span></span>
+<span class="line"><span style="--shiki-light:#000000;--shiki-dark:#D4D4D4">}</span></span></code></pre>
+<p>请求体就是标准的 Responses API 格式，没有别的魔法。也就是说，任何已经支持 ChatGPT OAuth 账号的中转网关，只要加上这套「BPS 协议」的出口逻辑，就能让降智账号恢复满血输出。</p>
+<h2 id="缺点">缺点</h2>
+<p>这个方案目前最明显的短板是 <strong>effort 没有 max 挡位</strong>——推理强度最高只能开到 high，想要 xhigh / max 档位还是得走原生通道。另外就是上面提到的，部分新模型在 BPS 通道里直接 403，模型覆盖面比原生通道窄。</p>
+<p>所以更合理的用法不是完全替代原生通道，而是把它当作<strong>降级兜底</strong>：原生通道被降智时切到 BPS，恢复之后再切回来。</p>
+<h2 id="在-sub2api-里落地">在 sub2api 里落地</h2>
+<p>事实上 <a href="https://github.com/ranxi2001/sub2api">sub2api</a> 已经把 BPS 做成了一等公民，最近几个版本的更新基本就是围绕这条通道在打转：</p>
+<ul>
+<li><strong>降智后自动开启 BPS</strong>：质量规则可以按「连续降智次数」或 5h / 7d 用量阈值触发，自动把账号切到 BPS 通道；恢复后还能自动关闭，全程不需要人工盯。</li>
+<li><strong>BPS 403 自动处理与恢复探测</strong>：BPS 返回 403 时自动关闭协议并支持按间隔探测恢复，只有完整成功响应加回声校验通过才会真正恢复，避免反复横跳。</li>
+<li><strong>BPS 原生图片上传</strong>：图片默认走 BPS 原生附件上传，还支持 <code>gpt-image-2</code> 的文生图和单图编辑。</li>
+<li><strong>429 切换</strong>：BPS 上游限流且还没向客户端输出内容时，会在切换预算内自动尝试其他可用账号，限流冷却只作用于走 BPS 的模型，不污染全局限流状态。</li>
+<li><strong>会话出口预热</strong>：BPS 会话代理优先使用通过初筛的订阅节点，后台维护健康池，池空直接 503 而不是临时探测。</li>
+</ul>
+<p>对这些细节感兴趣的话，可以直接翻 <a href="https://github.com/ranxi2001/sub2api/releases">sub2api 的 Releases 页面</a>，每个版本的 BPS 相关改动都写得很清楚。</p>
+<h2 id="最后">最后</h2>
+<p>这个方案的优雅之处在于它没有用任何漏洞——BPS 是 OpenAI 自己给官方合作客户端开的门，我们只是借了 Excel 插件的钥匙走进去。至于这扇门会开多久，就看 OpenAI 什么时候注意到它了。</p>
+<p>需要提醒的是，这种用法大概率不符合 OpenAI 的服务条款，账号有被限制甚至封禁的风险，建议只在自己的测试账号上折腾。</p>
+<p>就当中秋迟到的礼物，送给各位佬友吧。</p>
+</div></article></main><footer class="site-footer"><div class="site-footer__inner"><div class="footer-brand"><span class="footer-brand__name">鹿の歌</span><span class="footer-brand__desc">Kano no Uta</span></div><div class="footer-links"><div class="footer-group"><span class="footer-group__title" data-i18n="footerNavTitle">导航</span><a href="/" data-i18n="home">首页</a><a href="/blog" data-i18n="posts">文章</a><a href="/links" data-i18n="links">友链</a><a href="/lab" data-i18n="lab">Lab</a><a href="/about" data-i18n="about">关于</a></div><div class="footer-group"><span class="footer-group__title" data-i18n="footerSubscribeTitle">订阅</span><a href="/rss.xml">RSS</a><a href="/blog" data-i18n="footerArchive">文章归档</a></div><div class="footer-group"><span class="footer-group__title" data-i18n="footerContactTitle">联系</span><a href="mailto:hello@example.com">Email</a><a href="https://github.com/KanoNoUta" target="_blank" rel="noreferrer">GitHub</a></div></div></div><div class="site-footer__bottom"><span>&copy; 2026 <span data-i18n="footerWritten">Kano. Written at kanonouta.com.</span></span><span data-i18n="footerPowered">Powered by Astro.</span></div></footer></div><script type="module" src="/_astro/BaseLayout.astro_astro_type_script_index_0_lang.BoY_wrRy.js"></script></body></html>
